@@ -17,15 +17,25 @@ const isValidImageFile = (file: File): boolean => {
 const extractJSONFromMarkdown = (text: string): string => {
   // Remove markdown code block syntax and any extra whitespace
   const jsonMatch = text.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
-  return jsonMatch ? jsonMatch[1] : text;
+  return jsonMatch ? jsonMatch[1].trim() : text.trim();
 };
 
 const validateNutritionValues = (data: any): MealAnalysis => {
+  // Ensure all required fields are present
+  const requiredFields = ['description', 'calories', 'protein', 'fat', 'carbs'];
+  for (const field of requiredFields) {
+    if (!(field in data)) {
+      throw new Error(`Missing required field: ${field}`);
+    }
+  }
+
+  // Convert and validate each numeric field
   const calories = Math.round(Number(data.calories));
   const protein = Math.round(Number(data.protein));
   const fat = Math.round(Number(data.fat));
   const carbs = Math.round(Number(data.carbs));
 
+  // Validate numeric values
   if (isNaN(calories) || calories <= 0) {
     throw new Error('Invalid calorie value');
   }
@@ -66,6 +76,8 @@ export const analyzeMealImage = async (
       throw new Error(`Invalid file type: ${imageFile.type}. Please provide a valid image file (JPEG, PNG, or WebP).`);
     }
 
+    console.log('Starting image analysis...'); // Debug log
+
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
@@ -103,6 +115,8 @@ export const analyzeMealImage = async (
       - Round all numbers to the nearest whole number
       - Example response: {"description": "Grilled chicken breast with rice", "calories": 350, "protein": 30, "fat": 8, "carbs": 40}`;
 
+    console.log('Sending request to Gemini...'); // Debug log
+
     const result = await model.generateContent({
       contents: [
         {
@@ -121,15 +135,18 @@ export const analyzeMealImage = async (
     });
 
     const responseText = result.response.text();
+    console.log('Raw Gemini response:', responseText); // Debug log
     
     // Extract JSON from markdown if needed and parse
     try {
       const cleanedResponse = extractJSONFromMarkdown(responseText);
+      console.log('Cleaned response:', cleanedResponse); // Debug log
       const parsedData = JSON.parse(cleanedResponse);
+      console.log('Parsed data:', parsedData); // Debug log
       return validateNutritionValues(parsedData);
     } catch (parseError) {
       console.error("Failed to parse Gemini response:", responseText);
-      throw new Error(`Invalid response format: ${responseText}`);
+      throw new Error(`Invalid response format: ${parseError.message}`);
     }
   } catch (error) {
     console.error("Gemini API Error:", error);

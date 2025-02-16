@@ -1,13 +1,12 @@
 import React from 'react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Pie } from 'react-chartjs-2';
+import type { MealAnalysis } from '@/lib/gemini';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 interface MacroChartProps {
-  protein: number;
-  carbs: number;
-  fat: number;
+  analysis: MealAnalysis;
 }
 
 // Primary colors matching the macro cards
@@ -26,7 +25,13 @@ const CHART_COLORS = {
   },
 };
 
-export const MacroChart = ({ protein, carbs, fat }: MacroChartProps) => {
+export const MacroChart = ({ analysis }: MacroChartProps) => {
+  if (!analysis) {
+    return null;
+  }
+
+  const { protein, carbs, fat, calories } = analysis;
+
   // Convert macros to calories
   const proteinCalories = protein * 4;  // 4 calories per gram of protein
   const carbsCalories = carbs * 4;      // 4 calories per gram of carbs
@@ -71,7 +76,7 @@ export const MacroChart = ({ protein, carbs, fat }: MacroChartProps) => {
           label: (context: any) => {
             const label = context.label || '';
             const value = context.raw || 0;
-            const percentage = ((value / (proteinCalories + carbsCalories + fatCalories)) * 100).toFixed(1);
+            const percentage = ((value / calories) * 100).toFixed(1);
             return `${label}: ${value.toLocaleString()} kcal (${percentage}%)`;
           },
         },
@@ -87,21 +92,16 @@ export const MacroChart = ({ protein, carbs, fat }: MacroChartProps) => {
     },
   };
 
-  const totalCalories = proteinCalories + carbsCalories + fatCalories;
-
   return (
     <div className="space-y-4">
       <div className="text-center">
         <h3 className="text-xl font-bold mb-1">Macro Distribution</h3>
         <p className="text-lg font-semibold">
-          Total: {totalCalories.toLocaleString()} kcal
+          Total: {calories?.toLocaleString() || 'N/A'} kcal
         </p>
       </div>
       <div className="w-full max-w-sm mx-auto">
         <Pie data={data} options={options} />
-      </div>
-      <div className="text-center text-sm text-muted-foreground">
-        <p>Red: Protein • Blue: Carbs • Yellow: Fat</p>
       </div>
     </div>
   );

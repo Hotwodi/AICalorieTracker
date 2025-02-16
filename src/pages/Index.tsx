@@ -6,37 +6,28 @@ import { MacroGoals } from "@/components/MacroGoals";
 import { Calendar } from "@/components/Calendar";
 import { analyzeMealImage, type MealAnalysis } from "@/lib/gemini";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, LogOut } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FoodLogProvider, useFoodLog } from "@/context/FoodLogContext";
-import { useAuth } from "@/context/AuthContext";
+import { useFoodLog } from "@/context/FoodLogContext";
 
-const IndexContent = () => {
+const Index = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [analysis, setAnalysis] = useState<MealAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const { toast } = useToast();
-  const { addFoodItem } = useFoodLog();
-  const { user, logout } = useAuth();
+  const { addFoodItem, getTodaysMacroTotals } = useFoodLog();
 
   const handleImageSelect = (file: File | null) => {
     setSelectedImage(file);
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setImageUrl(url);
-    } else {
-      setImageUrl(null);
-    }
+    setAnalysis(null);
   };
 
-  const handleAnalyze = async () => {
+  const handleAnalyzeImage = async () => {
     if (!selectedImage) {
       toast({
-        title: "No image selected",
-        description: "Please upload an image first",
+        title: "No Image Selected",
+        description: "Please select an image to analyze.",
         variant: "destructive",
       });
       return;
@@ -45,155 +36,81 @@ const IndexContent = () => {
     setIsAnalyzing(true);
     try {
       const result = await analyzeMealImage(selectedImage);
+      console.log('Analysis result:', result); // Debug log
       setAnalysis(result);
       
+      // Add the meal to the food log
       addFoodItem({
-        name: result.description || 'Unidentified Meal',
-        calories: result.calories || 0,
-        protein: result.protein || 0,
-        carbs: result.carbs || 0,
-        fat: result.fat || 0,
+        name: result.description,
+        calories: result.calories,
+        protein: result.protein,
+        carbs: result.carbs,
+        fat: result.fat
       });
 
       toast({
-        title: "Analysis complete",
-        description: "Your meal has been analyzed and added to your food log",
+        title: "Analysis Complete",
+        description: "Your meal has been analyzed and added to your food log.",
       });
-    } catch (error: any) {
-      console.error('Analysis error:', error);
+    } catch (error) {
+      console.error('Error analyzing image:', error);
       toast({
-        title: "Analysis failed",
-        description: error?.message || "There was an error analyzing your meal",
+        title: "Analysis Failed",
+        description: error instanceof Error ? error.message : "There was an error analyzing your meal. Please try again.",
         variant: "destructive",
       });
-      setAnalysis(null);
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  const handleReset = () => {
-    setSelectedImage(null);
-    setAnalysis(null);
-    setImageUrl(null);
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-accent/20">
-      <div className="container py-8 space-y-8 animate-fade-in">
-        <div className="flex justify-between items-center">
-          <div className="text-center space-y-2">
-            <h1 className="text-4xl font-bold tracking-tight">AI Calorie Tracker</h1>
-            <p className="text-muted-foreground">Welcome, {user?.name || 'User'}</p>
-          </div>
-          <Button 
-            variant="destructive" 
-            size="icon" 
-            onClick={logout}
-            title="Logout"
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
+    <div className="container mx-auto px-4 py-8">
+      <Tabs defaultValue="track" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="track">Track Meal</TabsTrigger>
+          <TabsTrigger value="progress">View Progress</TabsTrigger>
+        </TabsList>
 
-        <Tabs defaultValue="analyze" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="analyze">Analyze Meal</TabsTrigger>
-            <TabsTrigger value="goals">Daily Goals</TabsTrigger>
-            <TabsTrigger value="calendar">Calendar</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="analyze">
-            {!analysis ? (
-              <Card className="p-6 space-y-6">
+        <TabsContent value="track" className="space-y-4">
+          <Card className="p-6">
+            <h2 className="text-2xl font-bold mb-4">Track Your Meal</h2>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-4">
                 <ImageUpload
-                  selectedImage={selectedImage}
                   onImageSelect={handleImageSelect}
+                  selectedImage={selectedImage}
+                  onAnalyze={handleAnalyzeImage}
+                  isAnalyzing={isAnalyzing}
                 />
-
-                <div className="flex justify-center">
-                  <Button
-                    onClick={handleAnalyze}
-                    disabled={!selectedImage || isAnalyzing}
-                    className="w-full max-w-sm"
-                  >
-                    {isAnalyzing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      "Analyze Meal"
-                    )}
-                  </Button>
-                </div>
-              </Card>
-            ) : (
-              <div className="space-y-8 animate-fade-up">
-                <div className="grid gap-8">
+              </div>
+              {analysis && (
+                <div className="space-y-4">
                   <MacroDisplay
                     calories={analysis.calories}
                     protein={analysis.protein}
                     carbs={analysis.carbs}
                     fat={analysis.fat}
                   />
-                  <div className="border-t pt-6">
-                    <MacroChart
-                      protein={analysis.protein}
-                      carbs={analysis.carbs}
-                      fat={analysis.fat}
-                    />
-                  </div>
+                  <MacroChart analysis={analysis} />
                 </div>
+              )}
+            </div>
+          </Card>
+        </TabsContent>
 
-                <Card className="overflow-hidden">
-                  <div className="p-6 space-y-4">
-                    <div className="text-center space-y-2">
-                      <h2 className="text-2xl font-semibold">Recent Meal</h2>
-                      <p className="text-muted-foreground">{analysis.description}</p>
-                    </div>
-                    {imageUrl && (
-                      <div className="relative aspect-video w-full max-w-2xl mx-auto rounded-lg overflow-hidden">
-                        <img
-                          src={imageUrl}
-                          alt="Analyzed meal"
-                          className="object-cover w-full h-full"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </Card>
-
-                <div className="flex justify-center">
-                  <Button
-                    variant="outline"
-                    onClick={handleReset}
-                    className="w-full max-w-sm"
-                  >
-                    Analyze Another Meal
-                  </Button>
-                </div>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="goals">
-            <MacroGoals />
-          </TabsContent>
-
-          <TabsContent value="calendar">
-            <Calendar />
-          </TabsContent>
-        </Tabs>
-      </div>
+        <TabsContent value="progress">
+          <Card className="p-6">
+            <h2 className="text-2xl font-bold mb-4">Your Progress</h2>
+            <div className="space-y-6">
+              <MacroGoals />
+              <Calendar />
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
-
-const Index = () => (
-  <FoodLogProvider>
-    <IndexContent />
-  </FoodLogProvider>
-);
 
 export default Index;

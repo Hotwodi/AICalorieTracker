@@ -1,0 +1,65 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isUserAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return request.auth.uid == "urtqkhH0v8WSMVYLtPrxXjoCLXy1";
+    }
+
+    function isTestUser(userId) {
+      let userData = get(/databases/$(database)/documents/users/$(userId)).data;
+      return userData.isTestUser == true;
+    }
+
+    function hasFullAccess(userId) {
+      let userData = get(/databases/$(database)/documents/users/$(userId)).data;
+      return userData.subscription == "premium" || userData.isTestUser == true;
+    }
+
+    // Admin collection (fully accessible by admin)
+    match /admin/{document} {
+      allow read, write: if isAdmin();
+    }
+
+    // Users collection (read/write own data)
+    match /users/{userId} {
+      allow read, update: if isOwner(userId) || isAdmin();
+      allow create: if isUserAuthenticated();
+    }
+
+    // Meals collection
+    match /users/{userId}/meals/{mealId} {
+      // Test users get full access, free users limited to 24h
+      allow read: if isOwner(userId) && (hasFullAccess(userId) || request.time < resource.createTime + duration.value(24, "h"));
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && request.time < resource.createTime + duration.value(24, "h");
+      allow delete: if isAdmin();
+    }
+
+    // Calendar collection (for premium and test users)
+    match /users/{userId}/calendar/{date} {
+      allow read, create, update: if isOwner(userId) && (hasFullAccess(userId));
+      allow delete: if isAdmin();
+    }
+
+    // Recommendations (for premium and test users)
+    match /users/{userId}/recommendations/{date} {
+      allow read, create, update: if isOwner(userId) && (hasFullAccess(userId));
+      allow delete: if isAdmin();
+    }
+
+    // Usage limits
+    match /usage_limits/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin() || isTestUser(userId);
+    }
+  }
+}

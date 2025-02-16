@@ -6,12 +6,14 @@ import { useToast } from "@/components/ui/use-toast";
 interface ImageUploadProps {
   selectedImage: File | null;
   onImageSelect: (file: File | null) => void;
+  onAnalyze: () => void;
+  isAnalyzing: boolean;
 }
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
 
-export const ImageUpload = ({ selectedImage, onImageSelect }: ImageUploadProps) => {
+export const ImageUpload = ({ selectedImage, onImageSelect, onAnalyze, isAnalyzing }: ImageUploadProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -205,22 +207,41 @@ export const ImageUpload = ({ selectedImage, onImageSelect }: ImageUploadProps) 
           <Camera className="w-4 h-4" />
           Take Photo
         </Button>
+
+        {selectedImage && (
+          <Button
+            onClick={onAnalyze}
+            disabled={isAnalyzing}
+            className="flex gap-2"
+          >
+            {isAnalyzing ? (
+              <>
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <ImageIcon className="w-4 h-4" />
+                Analyze Meal
+              </>
+            )}
+          </Button>
+        )}
       </div>
 
       <input
-        ref={fileInputRef}
         type="file"
-        accept={ACCEPTED_IMAGE_TYPES.join(',')}
+        ref={fileInputRef}
         onChange={handleFileChange}
+        accept={ACCEPTED_IMAGE_TYPES.join(',')}
         className="hidden"
       />
-
       <input
-        ref={cameraInputRef}
         type="file"
+        ref={cameraInputRef}
+        onChange={handleFileChange}
         accept="image/*"
         capture="environment"
-        onChange={handleFileChange}
         className="hidden"
       />
     </div>

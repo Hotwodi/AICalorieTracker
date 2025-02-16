@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useFoodLog } from "@/context/FoodLogContext";
@@ -11,13 +11,17 @@ export const MacroGoals = () => {
   const { 
     dailyMacroGoals, 
     setDailyMacroGoals, 
-    getTodaysMacroTotals 
+    getTodaysMacroTotals,
+    foodLog 
   } = useFoodLog();
 
   const [editingMacro, setEditingMacro] = useState<'calories' | 'protein' | 'carbs' | 'fat' | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [todaysMacros, setTodaysMacros] = useState(getTodaysMacroTotals());
 
-  const todaysMacros = getTodaysMacroTotals();
+  useEffect(() => {
+    setTodaysMacros(getTodaysMacroTotals());
+  }, [foodLog, getTodaysMacroTotals]);
 
   const macroItems = [
     {
@@ -25,7 +29,9 @@ export const MacroGoals = () => {
       icon: Flame,
       current: todaysMacros.calories,
       goal: dailyMacroGoals.calories,
-      color: "bg-orange-500",
+      color: "text-orange-500",
+      bgColor: "bg-orange-500",
+      unit: "kcal",
       inputKey: 'calories'
     },
     {
@@ -33,7 +39,9 @@ export const MacroGoals = () => {
       icon: Beef,
       current: todaysMacros.protein,
       goal: dailyMacroGoals.protein,
-      color: "bg-red-600",
+      color: "text-red-600",
+      bgColor: "bg-red-600",
+      unit: "g",
       inputKey: 'protein'
     },
     {
@@ -41,7 +49,9 @@ export const MacroGoals = () => {
       icon: Cookie,
       current: todaysMacros.carbs,
       goal: dailyMacroGoals.carbs,
-      color: "bg-blue-600",
+      color: "text-blue-600",
+      bgColor: "bg-blue-600",
+      unit: "g",
       inputKey: 'carbs'
     },
     {
@@ -49,7 +59,9 @@ export const MacroGoals = () => {
       icon: Droplets,
       current: todaysMacros.fat,
       goal: dailyMacroGoals.fat,
-      color: "bg-yellow-500",
+      color: "text-yellow-500",
+      bgColor: "bg-yellow-500",
+      unit: "g",
       inputKey: 'fat'
     }
   ];
@@ -76,7 +88,7 @@ export const MacroGoals = () => {
     <Card className="p-6 space-y-6">
       <h2 className="text-2xl font-bold">Daily Macro Goals</h2>
       
-      <div className="space-y-4">
+      <div className="space-y-6">
         {macroItems.map((item) => (
           <div key={item.label} className="space-y-2">
             <div className="flex justify-between items-center">
@@ -93,6 +105,7 @@ export const MacroGoals = () => {
                     onChange={(e) => setEditValue(e.target.value)}
                     className="w-20"
                     autoFocus
+                    min="0"
                   />
                   <Button 
                     variant="outline" 
@@ -103,29 +116,27 @@ export const MacroGoals = () => {
                   </Button>
                 </div>
               ) : (
-                <div 
-                  className="flex items-center gap-2 cursor-pointer hover:bg-accent rounded-md p-1"
-                  onClick={() => handleEditStart(item.inputKey as 'calories' | 'protein' | 'carbs' | 'fat')}
-                >
-                  <span className="font-semibold">
-                    {todaysMacros[item.inputKey as keyof typeof todaysMacros]} / {item.goal}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    {item.current.toLocaleString()} / {item.goal.toLocaleString()} {item.unit}
                   </span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6">
-                    ✏️
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEditStart(item.inputKey as any)}
+                  >
+                    Edit
                   </Button>
                 </div>
               )}
             </div>
+            
             <Progress 
-              value={Math.min(100, (todaysMacros[item.inputKey as keyof typeof todaysMacros] / item.goal) * 100)} 
-              className={`${item.color}/20`}
+              value={(item.current / item.goal) * 100} 
+              className={`h-2 ${item.bgColor}`}
             />
           </div>
         ))}
-      </div>
-
-      <div className="text-sm text-muted-foreground text-center">
-        Click on a macro to edit your daily goal
       </div>
     </Card>
   );
