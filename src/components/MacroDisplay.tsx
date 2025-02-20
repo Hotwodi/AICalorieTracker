@@ -1,6 +1,7 @@
 import React from "react";
 import { Flame, Beef, Cookie, Droplets } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { MealAnalysis } from "@/lib/gemini";
 
 interface MacroDisplayProps {
   calories: number | null;
@@ -37,7 +38,7 @@ export const MacroDisplay = ({
 }: MacroDisplayProps) => {
   const formatNumber = (value: number | null) => {
     if (value === null || isNaN(value)) return '0';
-    return value.toLocaleString();
+    return Math.round(value).toLocaleString();
   };
 
   const macros = [

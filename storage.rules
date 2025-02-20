@@ -1,0 +1,48 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function getUserData(userId) {
+      return firestore.get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
+    function getDailyUploadCount(userId) {
+      let today = string(date.now().toMillis() - (date.now().toMillis() % 86400000));
+      let usageData = firestore.get(/databases/$(database)/documents/usage_limits/$(userId)).data;
+      return usageData.dailyPhotoUploads[today] || 0;
+    }
+
+    function canUploadMorePhotos(userId) {
+      let userData = getUserData(userId);
+      let dailyCount = getDailyUploadCount(userId);
+      
+      // Get max uploads based on subscription
+      let maxUploads = userData.subscription == "premium" ? 10 : 2;
+      
+      return dailyCount < maxUploads;
+    }
+
+    // User photos
+    match /users/{userId}/photos/{photoId} {
+      // Allow read if authenticated and owner
+      allow read: if isAuthenticated() && isOwner(userId);
+      
+      // Allow create if authenticated, owner, and within daily limit
+      allow create: if isAuthenticated() 
+        && isOwner(userId) 
+        && canUploadMorePhotos(userId)
+        && request.resource.size < 5 * 1024 * 1024; // 5MB max
+      
+      // Allow delete if owner
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+  }
+}

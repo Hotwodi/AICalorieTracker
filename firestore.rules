@@ -1,0 +1,115 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isUserAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return request.auth.uid == "urtqkhH0v8WSMVYLtPrxXjoCLXy1";
+    }
+
+    function isTestUser(userId) {
+      let userData = get(/databases/$(database)/documents/users/$(userId)).data;
+      return userData.isTestUser == true;
+    }
+
+    function hasFullAccess(userId) {
+      let userData = get(/databases/$(database)/documents/users/$(userId)).data;
+      return userData.subscription == "premium" || userData.isTestUser == true;
+    }
+
+    function getMaxDailyUploads(userId) {
+      let userData = get(/databases/$(database)/documents/users/$(userId)).data;
+      return userData.subscription == "premium" ? 8 : 
+             (userData.freeTrialPhotoUploadsEndDate == null || 
+              userData.freeTrialPhotoUploadsEndDate.toMillis() > request.time.toMillis()) ? 3 : 0;
+    }
+
+    function shouldResetCount(lastReset) {
+      // Reset if last reset was more than 14 days ago
+      return request.time.toMillis() - lastReset.toMillis() >= 14 * 24 * 60 * 60 * 1000;
+    }
+
+    function canUploadMorePhotos(userId, currentData) {
+      // If needs reset, then yes can upload
+      if (shouldResetCount(currentData.lastReset)) {
+        return true;
+      }
+      // Otherwise check against current count
+      return currentData.count < getMaxDailyUploads(userId);
+    }
+
+    // Admin collection (fully accessible by admin)
+    match /admin/{document} {
+      allow read, write: if isAdmin();
+    }
+
+    // Users collection (read/write own data)
+    match /users/{userId} {
+      allow read, update: if isOwner(userId) || isAdmin();
+      allow create: if isUserAuthenticated();
+    }
+
+    // Meals collection
+    match /users/{userId}/meals/{mealId} {
+      allow read: if isOwner(userId) && (hasFullAccess(userId) || request.time < resource.createTime + duration.value(24, "h"));
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && request.time < resource.createTime + duration.value(24, "h");
+      allow delete: if isAdmin();
+    }
+
+    // Calendar collection (for premium and test users)
+    match /users/{userId}/calendar/{date} {
+      allow read, create, update: if isOwner(userId) && (hasFullAccess(userId));
+      allow delete: if isAdmin();
+    }
+
+    // Recommendations (for premium and test users)
+    match /users/{userId}/recommendations/{date} {
+      allow read, create, update: if isOwner(userId) && (hasFullAccess(userId));
+      allow delete: if isAdmin();
+    }
+
+    // Upload rules
+    match /upload_rules/{ruleId} {
+      allow read: if isUserAuthenticated();
+      
+      allow update: if isOwner(resource.data.userId) && 
+        // Only allow count to increment by 1
+        request.resource.data.count == resource.data.count + 1 &&
+        // Keep maxDaily in sync with subscription
+        request.resource.data.maxDaily == getMaxDailyUploads(resource.data.userId) &&
+        // Ensure count doesn't exceed maxDaily
+        request.resource.data.count <= request.resource.data.maxDaily &&
+        // Keep same date and lastReset
+        request.resource.data.date == resource.data.date &&
+        request.resource.data.lastReset == resource.data.lastReset;
+
+      allow create: if isUserAuthenticated() &&
+        request.resource.data.count == 0 &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.maxDaily == getMaxDailyUploads(request.auth.uid) &&
+        request.resource.data.date == request.time &&
+        request.resource.data.lastReset == request.time;
+    }
+
+    // Photos collection
+    match /users/{userId}/photos/{photoId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if canUploadMorePhotos(userId, get(/databases/$(database)/documents/upload_rules/$(userId)).data);
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // Usage limits
+    match /usage_limits/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin() || isTestUser(userId);
+    }
+  }
+}

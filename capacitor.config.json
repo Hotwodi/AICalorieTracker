@@ -1,0 +1,6 @@
+{
+  "appId": "com.hotwodi.aicalorietracker",
+  "appName": "AI Calorie Tracker",
+  "webDir": "dist",
+  "plugins": {}
+}
