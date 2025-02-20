@@ -50,6 +50,33 @@ npm run dev
 - Click on "New codespace" to launch a new Codespace environment.
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
+## Firestore Utilities
+
+### Counting and Listing Documents
+
+You can use the `FirestoreUtils` class to interact with Firestore collections:
+
+```typescript
+import { FirestoreUtils } from './services/firestore-utils';
+
+// Count documents in a collection
+const userCount = await FirestoreUtils.countCollectionDocuments('subscriptions');
+console.log(`Number of users: ${userCount}`);
+
+// List document IDs
+const userIds = await FirestoreUtils.listCollectionDocumentIds('subscriptions');
+console.log('User IDs:', userIds);
+
+// Get full document details
+const userDocuments = await FirestoreUtils.getCollectionDocuments('subscriptions');
+console.log('User Documents:', userDocuments);
+```
+
+#### Available Methods
+- `countCollectionDocuments(collectionName: string)`: Returns total number of documents
+- `listCollectionDocumentIds(collectionName: string)`: Returns array of document IDs
+- `getCollectionDocuments(collectionName: string)`: Returns array of document data
+
 ## What technologies are used for this project?
 
 This project is built with .
