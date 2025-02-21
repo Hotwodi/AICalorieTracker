@@ -1,12 +1,9 @@
 import React from 'react';
 import { 
-  Navigate, 
+  BrowserRouter as Router, 
   Routes, 
   Route, 
-  Outlet,
-  RouterProvider,
-  createBrowserRouter,
-  createRoutesFromElements
+  Navigate 
 } from 'react-router-dom';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
@@ -55,46 +52,37 @@ const ProtectedRoute: React.FC<{
 };
 
 const App: React.FC = () => {
-  const router = createBrowserRouter(
-    createRoutesFromElements(
-      <Route element={<Layout />}>
-        <Route path="/" element={<MainLayout />} />
-        <Route 
-          path="/index" 
-          element={
-            <ProtectedRoute>
-              <Index />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/admin" 
-          element={
-            <ProtectedRoute adminOnly>
-              <AdminPanel />
-            </ProtectedRoute>
-          } 
-        />
-      </Route>
-    ),
-    {
-      // Add future flags to address deprecation warnings
-      future: {
-        v7_startTransition: true,
-        v7_relativeSplatPath: true
-      }
-    }
-  );
-
   return (
-    <AuthProvider>
-      <FoodLogProvider>
-        <MealSuggestionProvider>
-          <RouterProvider router={router} />
-          <Toaster />
-        </MealSuggestionProvider>
-      </FoodLogProvider>
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <FoodLogProvider>
+          <MealSuggestionProvider>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="/" element={<MainLayout />} />
+                <Route 
+                  path="/index" 
+                  element={
+                    <ProtectedRoute>
+                      <Index />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/admin" 
+                  element={
+                    <ProtectedRoute adminOnly>
+                      <AdminPanel />
+                    </ProtectedRoute>
+                  } 
+                />
+              </Route>
+            </Routes>
+            <Toaster />
+          </MealSuggestionProvider>
+        </FoodLogProvider>
+      </AuthProvider>
+    </Router>
   );
 };
 
