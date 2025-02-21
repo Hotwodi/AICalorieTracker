@@ -3,14 +3,6 @@ import { getAuth } from "firebase/auth";
 import { Logger } from './lib/logger.js';
 import { db } from '@/lib/firebase';
 
-const firebaseConfig = {
-  apiKey: '<API_KEY>',
-  authDomain: '<AUTH_DOMAIN>',
-  projectId: '<PROJECT_ID>',
-};
-
-// Initialize Auth
-const auth = getAuth();
 const logger = new Logger('UserInitialization');
 
 // Default usage limit configuration
@@ -133,67 +125,75 @@ export async function resetUserDailyUsage(userId: string) {
  * Initialize comprehensive user record
  * @param user - Firebase Authentication user object
  */
-async function initializeUserProfile(user) {
+export async function initializeUserRecord(user) {
+  if (!user || !user.uid) {
+    logger.error('Invalid user object for initialization');
+    return null;
+  }
+
   try {
     const userRef = doc(db, "users", user.uid);
     
-    // Enhanced logging for debugging
-    logger.info(`Attempting to initialize user profile for: ${user.email} (${user.uid})`);
+    logger.info(`Initializing user record for: ${user.email} (${user.uid})`);
 
-    try {
-      const userSnap = await getDoc(userRef);
+    // Check if user document already exists
+    const userSnap = await getDoc(userRef);
 
-      // Create user record if it doesn't exist
-      if (!userSnap.exists()) {
-        const userData = {
-          userId: user.uid,
-          email: user.email,
-          dailyTargetCalories: DEFAULT_DAILY_TARGET_CALORIES,
-          targetMacros: DEFAULT_MACROS,
-          createdAt: new Date(),
-          // Add explicit permissions field
-          permissions: {
-            read: true,
-            write: true
-          }
-        };
-
-        // Attempt to set document with more verbose error handling
-        try {
-          await setDoc(userRef, userData, { merge: true });
-          logger.info(`Created new user profile for ${user.email}`);
-        } catch (setError) {
-          logger.error("Error setting user document:", {
-            errorCode: setError.code,
-            errorMessage: setError.message,
-            userId: user.uid,
-            email: user.email
-          });
-          throw setError;
-        }
-      }
-
-      // Ensure usage limit exists
-      await createUserUsageLimit(user.uid);
-
-      return userSnap.exists() ? userSnap.data() : null;
-    } catch (getError) {
-      logger.error("Error retrieving user document:", {
-        errorCode: getError.code,
-        errorMessage: getError.message,
+    if (!userSnap.exists()) {
+      const userData = {
         userId: user.uid,
-        email: user.email
-      });
-      throw getError;
+        email: user.email,
+        displayName: user.displayName || '',
+        dailyTargetCalories: DEFAULT_DAILY_TARGET_CALORIES,
+        targetMacros: DEFAULT_MACROS,
+        createdAt: new Date(),
+        lastLogin: new Date(),
+        permissions: {
+          read: true,
+          write: true,
+          admin: false
+        }
+      };
+
+      try {
+        await setDoc(userRef, userData, { merge: true });
+        logger.info(`Created new user profile for ${user.email}`);
+      } catch (setError) {
+        logger.error('Failed to create user document', {
+          errorCode: setError.code,
+          errorMessage: setError.message,
+          userId: user.uid
+        });
+        throw setError;
+      }
+    } else {
+      // Update last login time for existing users
+      try {
+        await updateDoc(userRef, {
+          lastLogin: new Date()
+        });
+      } catch (updateError) {
+        logger.warn('Could not update last login time', {
+          errorCode: updateError.code,
+          errorMessage: updateError.message,
+          userId: user.uid
+        });
+      }
     }
+
+    // Ensure usage limit exists
+    await createUserUsageLimit(user.uid);
+
+    return userSnap.exists() ? userSnap.data() : null;
   } catch (error) {
-    logger.error("Comprehensive error in user initialization", {
+    logger.error('Comprehensive error in user initialization', {
       errorCode: error.code,
       errorMessage: error.message,
       userId: user?.uid,
-      email: user?.email,
-      fullError: error
+      email: user?.email
     });
+    
+    // Rethrow to allow caller to handle
     throw error;
   }
 }
@@ -201,10 +201,10 @@ async function initializeUserProfile(user) {
 /**
  * Initialize user record in Firestore when they sign in
  */
-export async function initializeUserRecord(user?: any) {
+export async function initializeUserRecordOnSignIn(user?: any) {
   try {
     // If no user is provided, use the current authenticated user
-    const currentUser = user || auth.currentUser;
+    const currentUser = user || getAuth().currentUser;
     
     // If still no user, just return null without logging a warning
     if (!currentUser) {
@@ -222,7 +222,7 @@ export async function initializeUserRecord(user?: any) {
       if (!userDoc.exists()) {
         // Initialize user profile if it doesn't exist
         logger.info(`Creating user profile for: ${currentUser.email}`);
-        await initializeUserProfile(currentUser);
+        await initializeUserRecord(currentUser);
       } else {
         logger.info(`User profile already exists for: ${currentUser.email}`);
       }

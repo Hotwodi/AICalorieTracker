@@ -1,5 +1,13 @@
 import React from 'react';
-import { Navigate, Routes, Route, Outlet } from 'react-router-dom';
+import { 
+  Navigate, 
+  Routes, 
+  Route, 
+  Outlet,
+  RouterProvider,
+  createBrowserRouter,
+  createRoutesFromElements
+} from 'react-router-dom';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { FoodLogProvider } from "@/context/FoodLogContext";
@@ -9,39 +17,6 @@ import { Loader2 } from 'lucide-react';
 import Index from "@/pages/Index";
 import AdminPanel from "@/pages/AdminPanel";
 import MainLayout from "@/pages/MainLayout";
-
-const App: React.FC = () => {
-  return (
-    <AuthProvider>
-      <FoodLogProvider>
-        <MealSuggestionProvider>
-          <Routes>
-            <Route element={<Layout />}>
-              <Route path="/" element={<MainLayout />} />
-              <Route 
-                path="/index" 
-                element={
-                  <ProtectedRoute>
-                    <Index />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin" 
-                element={
-                  <ProtectedRoute adminOnly>
-                    <AdminPanel />
-                  </ProtectedRoute>
-                } 
-              />
-            </Route>
-          </Routes>
-          <Toaster />
-        </MealSuggestionProvider>
-      </FoodLogProvider>
-    </AuthProvider>
-  );
-};
 
 const ProtectedRoute: React.FC<{ 
   children: React.ReactNode, 
@@ -77,6 +52,50 @@ const ProtectedRoute: React.FC<{
 
   console.log('[ProtectedRoute] Rendering protected content');
   return <>{children}</>;
+};
+
+const App: React.FC = () => {
+  const router = createBrowserRouter(
+    createRoutesFromElements(
+      <Route element={<Layout />}>
+        <Route path="/" element={<MainLayout />} />
+        <Route 
+          path="/index" 
+          element={
+            <ProtectedRoute>
+              <Index />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin" 
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminPanel />
+            </ProtectedRoute>
+          } 
+        />
+      </Route>
+    ),
+    {
+      // Add future flags to address deprecation warnings
+      future: {
+        v7_startTransition: true,
+        v7_relativeSplatPath: true
+      }
+    }
+  );
+
+  return (
+    <AuthProvider>
+      <FoodLogProvider>
+        <MealSuggestionProvider>
+          <RouterProvider router={router} />
+          <Toaster />
+        </MealSuggestionProvider>
+      </FoodLogProvider>
+    </AuthProvider>
+  );
 };
 
 export default App;
