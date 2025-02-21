@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react';
 import Index from "@/pages/Index";
 import AdminPanel from "@/pages/AdminPanel";
 import MainLayout from "@/pages/MainLayout";
-import Auth from "@/pages/Auth"; 
+import Login from "@/pages/Login";
 
 const App: React.FC = () => {
   return (
@@ -18,8 +18,8 @@ const App: React.FC = () => {
         <MealSuggestionProvider>
           <Routes>
             <Route element={<Layout />}>
-              <Route path="/auth" element={<Auth />} /> 
-              <Route path="/" element={<Navigate to="/auth" replace />} /> 
+              <Route path="/" element={<MainLayout />} />
+              <Route path="/login" element={<Login />} />
               <Route 
                 path="/index" 
                 element={
@@ -51,27 +51,33 @@ const ProtectedRoute: React.FC<{
 }> = ({ children, adminOnly = false }) => {
   const { isAuthenticated, isLoading, user } = useAuth();
 
-  console.log(`[ProtectedRoute] Current state: {isAuthenticated: ${isAuthenticated}, isLoading: ${isLoading}, user: '${user || 'No user'}', adminOnly: ${adminOnly}}`);
+  console.log('[ProtectedRoute] Current state:', {
+    isAuthenticated,
+    isLoading,
+    user: user ? user.email : 'No user',
+    adminOnly
+  });
 
   if (isLoading) {
+    console.log('[ProtectedRoute] Still loading, showing loader');
     return (
-      <div className="flex justify-center items-center h-full">
-        <Loader2 className="mr-2 h-8 w-8 animate-spin" />
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin" />
       </div>
     );
   }
 
   if (!isAuthenticated) {
-    console.log('[ProtectedRoute] Not authenticated, redirecting to home');
-    return <Navigate to="/auth" replace />;
+    console.log('[ProtectedRoute] Not authenticated, redirecting to login');
+    return <Navigate to="/login" replace />;
   }
 
-  // Admin-only route check
-  if (adminOnly && user !== 'reggietest655@gmail.com') {
-    console.log('[ProtectedRoute] Not an admin, redirecting to home');
-    return <Navigate to="/auth" replace />;
+  if (adminOnly && (!user || user.role !== 'admin')) {
+    console.log('[ProtectedRoute] Not an admin, redirecting to index');
+    return <Navigate to="/index" replace />;
   }
 
+  console.log('[ProtectedRoute] Rendering protected content');
   return <>{children}</>;
 };
 
