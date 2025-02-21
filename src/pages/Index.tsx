@@ -1,131 +1,62 @@
-import React, { useState } from 'react';
-import ImageUpload from '@/components/ImageUpload';
-import MealSuggestionPanel from '@/components/MealSuggestionPanel';
-import { MealSuggestionProvider } from '@/context/MealSuggestionContext';
-import { MacroDisplay } from "@/components/MacroDisplay";
-import { MacroChart } from "@/components/MacroChart";
-import { MacroGoals } from "@/components/MacroGoals";
-import { Calendar } from "@/components/Calendar";
-import { analyzeMealImage, type MealAnalysis } from "@/lib/gemini";
-import { useToast } from "@/components/ui/use-toast";
-import { Loader2 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
-import { useFoodLog } from "@/context/FoodLogContext";
-import LogoImage from '@/assets/logo.png';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from '@/context/AuthContext';
+import Logo from '@/assets/logo.png';
 
 const Index: React.FC = () => {
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [analysis, setAnalysis] = useState<MealAnalysis | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const { toast } = useToast();
-  const { addFoodLogEntry } = useFoodLog();
-
-  const handleImageSelect = (file: File | null) => {
-    setSelectedImage(file);
-    setAnalysis(null);
-  };
-
-  const handleAnalyzeImage = async () => {
-    if (!selectedImage) {
-      toast({
-        title: "No Image Selected",
-        description: "Please upload an image first.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      setIsAnalyzing(true);
-      const analyzedMeal = await analyzeMealImage(selectedImage);
-      
-      // Add to food log
-      await addFoodLogEntry({
-        date: new Date().toISOString(),
-        mealType: 'custom',
-        ...analyzedMeal
-      });
-
-      setAnalysis(analyzedMeal);
-      
-      toast({
-        title: "Meal Analyzed",
-        description: "Your meal has been successfully analyzed.",
-      });
-    } catch (error) {
-      console.error('Image analysis error:', error);
-      toast({
-        title: "Analysis Failed",
-        description: "Unable to analyze the image. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
+  const { currentUser } = useAuth();
 
   return (
-    <MealSuggestionProvider>
-      <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-screen">
-        {/* Company Logo */}
-        <div className="text-center">
+    <div className="min-h-screen flex flex-col justify-center items-center bg-gray-50">
+      <div className="text-center mb-8">
+        <div className="flex justify-center items-center mb-4">
           <img 
-            src={LogoImage} 
+            src={Logo} 
             alt="Smart Nutrition Logo" 
-            className="mx-auto mb-6 max-w-[200px] h-auto"
+            className="h-20 w-20 mr-4" 
           />
-          <h1 className="text-3xl font-bold mb-4">Smart Nutrition</h1>
+          <h1 className="text-4xl font-bold text-gray-800">Smart Nutrition</h1>
         </div>
-
-        <div className="container mx-auto px-4 py-8">
-          <Tabs defaultValue="track" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="track">Track Meal</TabsTrigger>
-              <TabsTrigger value="progress">View Progress</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="track" className="space-y-4">
-              <Card className="p-6">
-                <h2 className="text-2xl font-bold mb-4">Track Your Meal</h2>
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <ImageUpload
-                      onImageSelect={handleImageSelect}
-                      selectedImage={selectedImage}
-                      onAnalyze={handleAnalyzeImage}
-                      isAnalyzing={isAnalyzing}
-                    />
-                  </div>
-                  {analysis && (
-                    <div className="space-y-4">
-                      <MacroDisplay
-                        calories={analysis.calories}
-                        protein={analysis.protein}
-                        carbs={analysis.carbs}
-                        fat={analysis.fat}
-                      />
-                      <MacroChart analysis={analysis} />
-                      <MealSuggestionPanel />
-                    </div>
-                  )}
-                </div>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="progress">
-              <Card className="p-6">
-                <h2 className="text-2xl font-bold mb-4">Your Progress</h2>
-                <div className="space-y-6">
-                  <MacroGoals />
-                  <Calendar />
-                </div>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
+        <p className="text-xl text-gray-600 mb-6">
+          Your personal nutrition and wellness companion
+        </p>
       </div>
-    </MealSuggestionProvider>
+
+      <Card className="w-[350px] shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-center">Welcome to Smart Nutrition</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {currentUser ? (
+            <div className="space-y-4">
+              <p className="text-center">
+                Welcome back, {currentUser.email || 'User'}!
+              </p>
+              <Link to="/dashboard" className="block">
+                <Button className="w-full">
+                  Go to Dashboard
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <Link to="/login" className="block">
+                <Button className="w-full">
+                  Login
+                </Button>
+              </Link>
+              <Link to="/signup" className="block">
+                <Button variant="outline" className="w-full">
+                  Sign Up
+                </Button>
+              </Link>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
