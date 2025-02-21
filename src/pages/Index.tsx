@@ -18,7 +18,6 @@ const Index: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [analysis, setAnalysis] = useState<MealAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [imageError, setImageError] = useState(false);
   const { toast } = useToast();
   const { addFoodLogEntry } = useFoodLog();
 
@@ -66,28 +65,16 @@ const Index: React.FC = () => {
     }
   };
 
-  const handleLogoError = () => {
-    setImageError(true);
-    console.error('Failed to load logo image');
-  };
-
   return (
     <MealSuggestionProvider>
       <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-screen">
         {/* Company Logo */}
         <div className="mb-8 w-full flex justify-center">
-          {!imageError ? (
-            <img 
-              src={LogoImage} 
-              alt="AI Calorie Tracker Logo" 
-              onError={handleLogoError}
-              className="max-w-xs md:max-w-sm lg:max-w-md h-auto object-contain"
-            />
-          ) : (
-            <div className="max-w-xs md:max-w-sm lg:max-w-md h-auto bg-gray-200 flex items-center justify-center">
-              <span className="text-gray-500 text-sm">Logo</span>
-            </div>
-          )}
+          <img 
+            src={LogoImage} 
+            alt="AI Calorie Tracker Logo" 
+            className="max-w-xs md:max-w-sm lg:max-w-md h-auto object-contain"
+          />
         </div>
 
         <div className="container mx-auto px-4 py-8">

@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import Logo from '@/assets/logo.png';
 
 const MainLayout: React.FC = () => {
   const { isAuthenticated, isLoading, login, signup } = useAuth();
@@ -96,16 +95,11 @@ const MainLayout: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md p-6">
-        <img 
-          src={Logo} 
-          alt="Smart Nutrition Logo" 
-          className="mx-auto mb-6 max-w-[150px] h-auto"
-        />
-        <h1 className="text-center text-2xl font-bold mb-4">
-          {isLogin ? 'Login to Smart Nutrition' : 'Sign Up for Smart Nutrition'}
-        </h1>
+    <div className="flex min-h-screen items-center justify-center bg-gray-100">
+      <Card className="w-full max-w-md p-6 space-y-4">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">{isLogin ? 'Login' : 'Sign Up'}</h1>
+        </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <div>

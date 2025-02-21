@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { MealSuggestion, MealSuggestionService } from '@/services/MealSuggestionService';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { MealSuggestionService, MealSuggestion } from '@/services/MealSuggestionService';
 import { useAuth } from './AuthContext';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -7,56 +7,56 @@ import { db } from '@/lib/firebase';
 // Define the context type
 interface MealSuggestionContextType {
   suggestions: MealSuggestion[];
-  fetchSuggestions: () => Promise<void>;
+  fetchRecentSuggestions: () => Promise<void>;
 }
 
 // Create the context
 const MealSuggestionContext = createContext<MealSuggestionContextType | undefined>(undefined);
 
-// Provider component
+// Create a provider component
 export const MealSuggestionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [suggestions, setSuggestions] = useState<MealSuggestion[]>([]);
   const { user } = useAuth();
 
-  const fetchSuggestions = async () => {
-    if (!user) {
-      setSuggestions([]);
-      return;
-    }
+  // Fetch recent suggestions
+  const fetchRecentSuggestions = async () => {
+    if (!user) return;
 
     try {
-      // Get current hour
-      const currentHour = new Date().getHours();
-      
-      // Generate suggestions based on time of day
-      const timeSuggestions = MealSuggestionService.generateTimedSuggestions(currentHour);
-      
-      setSuggestions(timeSuggestions);
+      const recentSuggestions = await MealSuggestionService.fetchRecentSuggestions(user);
+      setSuggestions(recentSuggestions);
     } catch (error) {
-      console.error('Error fetching meal suggestions:', error);
-      setSuggestions([]);
+      console.error('Error fetching recent meal suggestions:', error);
     }
   };
 
-  // Fetch suggestions when user changes or on initial load
+  // Automatically generate and fetch suggestions when user changes or on app open
   useEffect(() => {
-    fetchSuggestions();
+    if (user) {
+      const generateAndFetchSuggestions = async () => {
+        await MealSuggestionService.scheduleDailySuggestions(user);
+        await fetchRecentSuggestions();
+      };
+
+      generateAndFetchSuggestions();
+    }
   }, [user]);
 
   return (
-    <MealSuggestionContext.Provider value={{ suggestions, fetchSuggestions }}>
+    <MealSuggestionContext.Provider value={{ 
+      suggestions, 
+      fetchRecentSuggestions 
+    }}>
       {children}
     </MealSuggestionContext.Provider>
   );
 };
 
-// Custom hook to use the MealSuggestion context
+// Custom hook to use the MealSuggestionContext
 export const useMealSuggestions = () => {
   const context = useContext(MealSuggestionContext);
-  
   if (context === undefined) {
     throw new Error('useMealSuggestions must be used within a MealSuggestionProvider');
   }
-  
   return context;
 };

@@ -9,7 +9,6 @@ import { Loader2 } from 'lucide-react';
 import Index from "@/pages/Index";
 import AdminPanel from "@/pages/AdminPanel";
 import MainLayout from "@/pages/MainLayout";
-import Login from "@/pages/Login";
 
 const App: React.FC = () => {
   return (
@@ -19,7 +18,6 @@ const App: React.FC = () => {
           <Routes>
             <Route element={<Layout />}>
               <Route path="/" element={<MainLayout />} />
-              <Route path="/login" element={<Login />} />
               <Route 
                 path="/index" 
                 element={
@@ -68,8 +66,8 @@ const ProtectedRoute: React.FC<{
   }
 
   if (!isAuthenticated) {
-    console.log('[ProtectedRoute] Not authenticated, redirecting to login');
-    return <Navigate to="/login" replace />;
+    console.log('[ProtectedRoute] Not authenticated, redirecting to home');
+    return <Navigate to="/" replace />;
   }
 
   if (adminOnly && (!user || user.role !== 'admin')) {

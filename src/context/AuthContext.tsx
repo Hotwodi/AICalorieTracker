@@ -1,208 +1,114 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 import { 
-  signIn, 
-  signUp, 
-  signOut, 
-  updateUserProfile,
-  checkSession,
-  onAuthStateChanged
-} from '@/lib/firebase';
-import { getAuth } from 'firebase/auth';
-import { User } from 'firebase/auth';
-import { initializeUserRecord } from '@/userInitialization';
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut as firebaseSignOut, 
+  onAuthStateChanged,
+  User
+} from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { 
+  initializeUserRecord, 
+  UserProfile, 
+  checkUserPermission,
+  logUserAction 
+} from '@/userInitialization';
 import { toast } from 'sonner';
 
 interface AuthContextType {
-  user: User | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<User | null>;
-  signup: (email: string, password: string, profile?: { name?: string }) => Promise<void>;
-  logout: () => Promise<void>;
-  updateProfile: (displayName: string) => Promise<void>;
+  currentUser: User | null;
+  userProfile: UserProfile | null;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  hasFeatureAccess: (feature: keyof NonNullable<UserProfile['permissions']['features']>) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const auth = getAuth();
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
-    console.log('[AuthContext] Setting up auth state listener');
-    
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      try {
-        console.log('[AuthContext] Auth state changed:', {
-          userPresent: !!firebaseUser,
-          email: firebaseUser?.email,
-          isLoading: true
-        });
-
-        if (firebaseUser) {
-          // User is signed in
-          setUser(firebaseUser);
-          setIsAuthenticated(true);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          // Initialize or update user record
+          const profile = await initializeUserRecord(user);
+          setCurrentUser(user);
+          setUserProfile(profile);
           
-          // Initialize user record
-          await initializeUserRecord(firebaseUser);
-          
-          console.log('[AuthContext] User initialized successfully');
-        } else {
-          // No user is signed in
-          console.log('[AuthContext] No user signed in');
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error('[AuthContext] Error in auth state change:', error);
-        setUser(null);
-        setIsAuthenticated(false);
-      } finally {
-        console.log('[AuthContext] Setting isLoading to false');
-        setIsLoading(false);
-      }
-    }, (error) => {
-      console.error('[AuthContext] Auth state listener error:', error);
-      setIsLoading(false);
-    });
-
-    // Cleanup subscription on unmount
-    return () => {
-      console.log('[AuthContext] Cleaning up auth state listener');
-      unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    console.log('[AuthContext] Setting up initial session check');
-
-    // Check for existing session on mount
-    const verifySession = async () => {
-      try {
-        setIsLoading(true);
-        const existingUser = await checkSession();
-        
-        if (existingUser) {
-          // User is already logged in
-          setUser(existingUser);
-          setIsAuthenticated(true);
-          toast({
-            title: "Welcome Back!",
-            description: `Signed in as ${existingUser.email}`,
+          // Log user login action
+          await logUserAction(user.uid, 'user_login', { 
+            email: user.email, 
+            timestamp: new Date().toISOString() 
+          });
+        } catch (error) {
+          console.error('Failed to initialize user record', error);
+          toast.error('Authentication error', {
+            description: 'Unable to load user profile'
           });
         }
-      } catch (error) {
-        console.error('[AuthContext] Session verification error:', error);
-      } finally {
-        setIsLoading(false);
+      } else {
+        setCurrentUser(null);
+        setUserProfile(null);
       }
-    };
+    });
 
-    // Run session checks
-    verifySession();
-  }, [toast]);
+    return () => unsubscribe();
+  }, []);
 
-  const login = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string) => {
     try {
-      setIsLoading(true);
-      const userCredential = await signIn(email, password);
-      
-      if (userCredential.user) {
-        await initializeUserRecord(userCredential.user);
-        setUser(userCredential.user);
-        setIsAuthenticated(true);
-        toast.success('Login successful');
-      }
-    } catch (error: any) {
-      setIsAuthenticated(false);
-      toast.error(error.message || 'Login failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const signup = async (email: string, password: string, profile?: { name?: string }) => {
-    try {
-      setIsLoading(true);
-      const userCredential: UserCredential = await signUp(email, password, profile?.name);
-      
-      toast({
-        title: "Sign Up Successful",
-        description: `Account created for ${userCredential.user.email}`,
-      });
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      toast.success('Successfully signed in');
     } catch (error) {
-      console.error('[AuthContext] Signup error:', error);
-      toast({
-        title: "Sign Up Failed",
-        description: error instanceof Error ? error.message : "Unable to create account",
-        variant: "destructive",
+      console.error('Sign in error', error);
+      toast.error('Sign in failed', {
+        description: error instanceof Error ? error.message : 'Unknown error'
       });
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const logout = async () => {
+  const signUp = async (email: string, password: string) => {
     try {
-      setIsLoading(true);
-      await signOut(auth);
-      
-      // Reset user state
-      setUser(null);
-      setIsAuthenticated(false);
-      
-      // Optional: Clear any user-specific data or local storage
-      localStorage.removeItem('userToken');
-      
-      toast({
-        title: "Signed Out",
-        description: "You have been successfully signed out",
-      });
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      toast.success('Account created successfully');
     } catch (error) {
-      console.error('[AuthContext] Logout error:', error);
-      toast({
-        title: "Sign Out Failed",
-        description: error instanceof Error ? error.message : "Unable to sign out",
-        variant: "destructive",
+      console.error('Sign up error', error);
+      toast.error('Sign up failed', {
+        description: error instanceof Error ? error.message : 'Unknown error'
       });
-    } finally {
-      setIsLoading(false);
+      throw error;
     }
   };
 
-  const updateProfile = async (displayName: string) => {
+  const signOut = async () => {
     try {
-      setIsLoading(true);
-      await updateUserProfile(displayName);
-      
-      toast({
-        title: "Profile Updated",
-        description: `Display name updated to ${displayName}`,
-      });
+      if (currentUser) {
+        await logUserAction(currentUser.uid, 'user_logout');
+      }
+      await firebaseSignOut(auth);
+      toast.success('Successfully signed out');
     } catch (error) {
-      console.error('[AuthContext] Profile update error:', error);
-      toast({
-        title: "Profile Update Failed",
-        description: error instanceof Error ? error.message : "Unable to update profile",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+      console.error('Sign out error', error);
+      toast.error('Sign out failed');
     }
+  };
+
+  const hasFeatureAccess = (feature: keyof NonNullable<UserProfile['permissions']['features']>): boolean => {
+    return userProfile ? checkUserPermission(userProfile, feature) : false;
   };
 
   const value = {
-    user,
-    isAuthenticated,
-    isLoading,
-    login,
-    signup,
-    logout,
-    updateProfile
+    currentUser,
+    userProfile,
+    signIn,
+    signUp,
+    signOut,
+    hasFeatureAccess
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
