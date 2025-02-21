@@ -11,7 +11,7 @@ const MealTypeIcon = {
   'late-night': '🌙'
 };
 
-const MealSuggestionPanel: React.FC = () => {
+export const MealSuggestionPanel: React.FC = () => {
   const { suggestions } = useMealSuggestions();
 
   if (suggestions.length === 0) {
