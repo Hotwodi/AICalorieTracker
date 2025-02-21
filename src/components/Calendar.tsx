@@ -17,20 +17,37 @@ import {
   DialogTrigger 
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
+import { Logger } from '@/lib/logger';
 
 export const Calendar: React.FC = () => {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const { toast } = useToast();
+  const logger = new Logger('Calendar');
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [calendarEntries, setCalendarEntries] = useState<{[key: string]: CalendarEntry}>({});
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [dayNote, setDayNote] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch calendar entries for the current month
   useEffect(() => {
-    if (!user) return;
-
     const fetchEntries = async () => {
+      // Validate user and permissions
+      if (!user) {
+        setError('User not authenticated');
+        return;
+      }
+
+      if (!userProfile?.permissions?.read) {
+        setError('Insufficient permissions to view calendar');
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
       try {
         const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-dd');
         const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
@@ -48,17 +65,58 @@ export const Calendar: React.FC = () => {
         }, {} as {[key: string]: CalendarEntry});
 
         setCalendarEntries(entriesMap);
+        logger.info('Calendar entries fetched successfully', { 
+          entryCount: entries.length 
+        });
       } catch (error) {
+        const errorMessage = error instanceof Error 
+          ? error.message 
+          : 'Unknown error fetching calendar entries';
+        
+        setError(errorMessage);
+        logger.error('Failed to fetch calendar entries', { 
+          error: errorMessage,
+          userId: user?.uid 
+        });
+
         toast({
-          title: "Error",
-          description: "Failed to load calendar entries",
+          title: "Error Loading Calendar",
+          description: errorMessage,
           variant: "destructive"
         });
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchEntries();
-  }, [currentDate, user, toast]);
+  }, [currentDate, user, userProfile, toast]);
+
+  // Render loading or error state
+  if (isLoading) {
+    return (
+      <div className="text-center py-4">
+        <p>Loading calendar entries...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-4 text-red-500">
+        <p>Error: {error}</p>
+        <Button 
+          onClick={() => {
+            setError(null);
+            setCurrentDate(new Date()); // Reset to current month
+          }}
+          className="mt-2"
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
   // Add or update a calendar entry
   const handleSaveEntry = async () => {
@@ -105,9 +163,19 @@ export const Calendar: React.FC = () => {
       setSelectedDay(null);
       setDayNote('');
     } catch (error) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Unknown error saving calendar entry';
+      
+      setError(errorMessage);
+      logger.error('Failed to save calendar entry', { 
+        error: errorMessage,
+        userId: user?.uid 
+      });
+
       toast({
-        title: "Error",
-        description: "Failed to save calendar entry",
+        title: "Error Saving Calendar Entry",
+        description: errorMessage,
         variant: "destructive"
       });
     }

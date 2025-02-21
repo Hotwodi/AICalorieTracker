@@ -247,27 +247,65 @@ const getCalendarEntriesByUser = async (
   startDate?: string, 
   endDate?: string
 ): Promise<CalendarEntry[]> => {
-  try {
-    const calendarRef = collection(db, 'calendar');
-    let q = query(calendarRef, where('userId', '==', userId));
+  if (!userId) {
+    console.error('[Firebase] getCalendarEntriesByUser: No user ID provided');
+    throw new Error('User ID is required to fetch calendar entries');
+  }
 
-    // Optional date filtering
+  try {
+    // Construct the base query
+    let entriesQuery = query(
+      collection(db, 'calendar_entries'),
+      where('userId', '==', userId)
+    );
+
+    // Add date range filtering if both start and end dates are provided
     if (startDate && endDate) {
-      q = query(
-        q, 
+      entriesQuery = query(
+        entriesQuery,
         where('date', '>=', startDate),
         where('date', '<=', endDate)
       );
     }
 
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
+    // Execute the query
+    const querySnapshot = await getDocs(entriesQuery);
+
+    // Map query results to CalendarEntry type
+    const entries: CalendarEntry[] = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     } as CalendarEntry));
+
+    // Log successful retrieval
+    console.log('[Firebase] Calendar entries retrieved', {
+      userId,
+      startDate,
+      endDate,
+      entryCount: entries.length
+    });
+
+    return entries;
   } catch (error) {
-    console.error('[Firebase] Error fetching calendar entries:', error);
-    throw new Error('Failed to fetch calendar entries');
+    // Detailed error logging
+    console.error('[Firebase] Error fetching calendar entries', {
+      userId,
+      startDate,
+      endDate,
+      errorName: error.name,
+      errorMessage: error.message,
+      errorCode: error.code
+    });
+
+    // Throw a more informative error
+    switch (error.code) {
+      case 'permission-denied':
+        throw new Error('Insufficient permissions to access calendar entries');
+      case 'unavailable':
+        throw new Error('Firestore service is currently unavailable');
+      default:
+        throw new Error(`Failed to retrieve calendar entries: ${error.message}`);
+    }
   }
 };
 
