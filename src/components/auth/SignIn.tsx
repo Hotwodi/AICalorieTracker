@@ -5,11 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
 import { Link } from 'react-router-dom';
+import logo from '@/assets/logo.png';
+import { cn } from '@/lib/utils';
 
 export function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -32,8 +35,32 @@ export function SignIn() {
     }
   };
 
+  const handleImageError = () => {
+    setImageError(true);
+    console.error('Failed to load logo image');
+  };
+
   return (
     <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
+      {/* Logo Section */}
+      <div className="flex justify-center mb-6">
+        {!imageError ? (
+          <img 
+            src={logo} 
+            alt="AI Calorie Tracker Logo" 
+            onError={handleImageError}
+            className={cn(
+              "h-24 w-24 object-contain",
+              "transition-all duration-300 hover:scale-110"
+            )}
+          />
+        ) : (
+          <div className="h-24 w-24 bg-gray-200 flex items-center justify-center rounded-full">
+            <span className="text-gray-500 text-sm">Logo</span>
+          </div>
+        )}
+      </div>
+
       <h2 className="text-2xl font-bold mb-6 text-center">Sign In</h2>
       {error && <p className="text-red-500 mb-4">{error}</p>}
       <form onSubmit={handleSignIn} className="space-y-4">
