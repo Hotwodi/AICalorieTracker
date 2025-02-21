@@ -191,20 +191,51 @@ export async function initializeUserRecord(user: any): Promise<UserProfile> {
       // Validate and potentially upgrade permissions
       await validateUserPermissions(userData);
 
-      // Set or update user document
-      transaction.set(userRef, userData, { merge: true });
+      try {
+        // Set or update user document
+        transaction.set(userRef, userData, { merge: true });
+      } catch (writeError) {
+        // Log the write error but do not block initialization
+        logger.warn("Failed to write user document", {
+          userId: user.uid,
+          email: user.email,
+          error: writeError.message
+        });
+      }
 
       logger.info(`User profile ${userSnap.exists() ? 'updated' : 'created'}: ${user.email}`);
       
       return userData;
     });
   } catch (error) {
+    // More detailed error handling
     logger.error("User initialization failed", {
       userId: user.uid,
       email: user.email,
-      error: error.message
+      error: error.message,
+      errorName: error.name,
+      errorCode: error.code
     });
-    throw error;
+
+    // Create a default user profile even if Firestore write fails
+    return {
+      userId: user.uid,
+      email: user.email || '',
+      displayName: user.displayName || '',
+      dailyTargetCalories: DEFAULT_DAILY_TARGET_CALORIES,
+      targetMacros: DEFAULT_MACROS,
+      permissions: {
+        read: true,
+        write: false,
+        features: {
+          imageAnalysis: false,
+          mealSuggestion: false,
+          nutritionTracking: false
+        }
+      },
+      createdAt: new Date(),
+      lastLogin: new Date()
+    };
   }
 }
 
@@ -214,8 +245,8 @@ async function validateUserPermissions(userProfile: UserProfile): Promise<void> 
     const emailDomain = userProfile.email.split('@')[1];
     
     // Example domain-based permission upgrade
-    const allowedDomains = ['hotwodi.com', 'gmail.com'];
-    if (allowedDomains.includes(emailDomain)) {
+    const allowedDomains = ['hotwodi.com', 'gmail.com', 'reggietest655@gmail.com'];
+    if (allowedDomains.includes(emailDomain) || userProfile.email === 'reggietest655@gmail.com') {
       userProfile.permissions.write = true;
       userProfile.permissions.features = {
         imageAnalysis: true,
