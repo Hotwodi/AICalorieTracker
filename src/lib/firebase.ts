@@ -6,31 +6,30 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   AuthError,
-  onAuthStateChanged,
-  User,
-  UserCredential
+  onAuthStateChanged as firebaseOnAuthStateChanged,
+  type User,
+  type UserCredential
 } from 'firebase/auth';
 import { 
-  initializeFirestore, 
-  persistentLocalCache,
+  getFirestore,
   doc, 
   setDoc,
   getDoc,
-  connectFirestoreEmulator
+  connectFirestoreEmulator,
+  collection, 
+  addDoc, 
+  query, 
+  where, 
+  getDocs, 
+  updateDoc, 
+  deleteDoc
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebaseConfig';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-
-// Initialize Firestore with persistent local cache
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    // Optional: Configure cache size and other settings
-    sizeBytes: 100 * 1024 * 1024 // 100MB cache
-  })
-});
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 // Verbose error logging
 const logAuthError = (error: unknown, context: string) => {
@@ -75,12 +74,18 @@ const createUserDocument = async (user: User, additionalData?: { displayName?: s
   try {
     const userSnapshot = await getDoc(userRef);
 
+    console.log('[Firebase] Checking user document:', {
+      userId: user.uid,
+      email: user.email,
+      documentExists: userSnapshot.exists()
+    });
+
     if (!userSnapshot.exists()) {
       const { email } = user;
       const { displayName } = additionalData || {};
       const createdAt = new Date();
 
-      await setDoc(userRef, {
+      const userData = {
         displayName: displayName || user.displayName || 'User',
         email,
         createdAt,
@@ -89,18 +94,40 @@ const createUserDocument = async (user: User, additionalData?: { displayName?: s
           protein: 100,
           carbs: 250,
           fat: 70
+        },
+        // Add explicit permissions
+        permissions: {
+          read: true,
+          write: true
         }
-      });
+      };
+
+      try {
+        await setDoc(userRef, userData, { merge: true });
+        console.log('[Firebase] Created user document successfully', { userId: user.uid });
+      } catch (setError) {
+        console.error('[Firebase] Error creating user document:', {
+          userId: user.uid,
+          errorCode: setError.code,
+          errorMessage: setError.message
+        });
+        throw setError;
+      }
     }
   } catch (error) {
-    handleFirebaseAuthError(error, 'Create User Document');
+    console.error('[Firebase] Error in createUserDocument:', {
+      userId: user.uid,
+      errorCode: error.code,
+      errorMessage: error.message
+    });
+    throw error;
   }
 };
 
 // Check for existing session
 const checkSession = async (): Promise<User | null> => {
   return new Promise((resolve, reject) => {
-    const unsubscribe = onAuthStateChanged(
+    const unsubscribe = firebaseOnAuthStateChanged(
       auth, 
       (user) => {
         unsubscribe();
@@ -181,12 +208,107 @@ const sendPasswordReset = async (email: string) => {
   }
 };
 
+// Define the structure for a calendar entry
+interface CalendarEntry {
+  id?: string;
+  userId: string;
+  date: string;
+  notes?: string;
+  events?: string[];
+  nutritionGoals?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+  completed?: boolean;
+}
+
+// Add calendar-related Firebase functions
+const addCalendarEntry = async (
+  userId: string, 
+  entry: Omit<CalendarEntry, 'id' | 'userId'>
+): Promise<string> => {
+  try {
+    const calendarRef = collection(db, 'calendar');
+    const docRef = await addDoc(calendarRef, {
+      ...entry,
+      userId
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('[Firebase] Error adding calendar entry:', error);
+    throw new Error('Failed to add calendar entry');
+  }
+};
+
+const getCalendarEntriesByUser = async (
+  userId: string, 
+  startDate?: string, 
+  endDate?: string
+): Promise<CalendarEntry[]> => {
+  try {
+    const calendarRef = collection(db, 'calendar');
+    let q = query(calendarRef, where('userId', '==', userId));
+
+    // Optional date filtering
+    if (startDate && endDate) {
+      q = query(
+        q, 
+        where('date', '>=', startDate),
+        where('date', '<=', endDate)
+      );
+    }
+
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as CalendarEntry));
+  } catch (error) {
+    console.error('[Firebase] Error fetching calendar entries:', error);
+    throw new Error('Failed to fetch calendar entries');
+  }
+};
+
+const updateCalendarEntry = async (
+  entryId: string, 
+  updates: Partial<CalendarEntry>
+): Promise<void> => {
+  try {
+    const entryRef = doc(db, 'calendar', entryId);
+    await updateDoc(entryRef, updates);
+  } catch (error) {
+    console.error('[Firebase] Error updating calendar entry:', error);
+    throw new Error('Failed to update calendar entry');
+  }
+};
+
+const deleteCalendarEntry = async (entryId: string): Promise<void> => {
+  try {
+    const entryRef = doc(db, 'calendar', entryId);
+    await deleteDoc(entryRef);
+  } catch (error) {
+    console.error('[Firebase] Error deleting calendar entry:', error);
+    throw new Error('Failed to delete calendar entry');
+  }
+};
+
 export {
   signIn,
   signUp,
   signOut,
   updateUserProfile,
-  sendPasswordReset,
   checkSession,
-  createUserDocument
+  firebaseOnAuthStateChanged as onAuthStateChanged,
+  User,
+  UserCredential,
+  CalendarEntry,
+  addCalendarEntry,
+  getCalendarEntriesByUser,
+  updateCalendarEntry,
+  deleteCalendarEntry,
+  sendPasswordReset,
+  auth,
+  db
 };

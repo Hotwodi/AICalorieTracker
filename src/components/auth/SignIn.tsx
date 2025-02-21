@@ -18,8 +18,15 @@ export function SignIn() {
     setError(null);
 
     try {
-      await login(email, password);
-      navigate('/'); // Redirect to home page after successful sign-in
+      const user = await login(email, password);
+      
+      // Explicitly check for user and navigate
+      if (user) {
+        // Use replace to prevent going back to login page
+        navigate('/index', { replace: true });
+      } else {
+        setError('Login failed. Please try again.');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during sign-in');
     }

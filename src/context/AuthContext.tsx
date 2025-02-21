@@ -1,20 +1,22 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, UserCredential } from 'firebase/auth';
 import { 
-  auth, 
   signIn, 
   signUp, 
   signOut, 
   updateUserProfile,
-  checkSession 
+  checkSession,
+  onAuthStateChanged
 } from '@/lib/firebase';
-import { useToast } from '@/components/ui/use-toast';
+import { getAuth } from 'firebase/auth';
+import { User } from 'firebase/auth';
+import { initializeUserRecord } from '@/userInitialization';
+import { toast } from 'sonner';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User | null>;
   signup: (email: string, password: string, profile?: { name?: string }) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (displayName: string) => Promise<void>;
@@ -22,13 +24,55 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
+  const auth = getAuth();
 
   useEffect(() => {
     console.log('[AuthContext] Setting up auth state listener');
+    
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      try {
+        console.log('[AuthContext] Auth state changed:', {
+          userPresent: !!firebaseUser,
+          email: firebaseUser?.email
+        });
+
+        if (firebaseUser) {
+          // User is signed in
+          setUser(firebaseUser);
+          setIsAuthenticated(true);
+          
+          // Initialize user record
+          await initializeUserRecord(firebaseUser);
+        } else {
+          // No user is signed in
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+      } catch (error) {
+        console.error('[AuthContext] Error in auth state change:', error);
+        setUser(null);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
+      }
+    }, (error) => {
+      console.error('[AuthContext] Auth state listener error:', error);
+      setIsLoading(false);
+    });
+
+    // Cleanup subscription on unmount
+    return () => {
+      console.log('[AuthContext] Cleaning up auth state listener');
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    console.log('[AuthContext] Setting up initial session check');
 
     // Check for existing session on mount
     const verifySession = async () => {
@@ -39,6 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (existingUser) {
           // User is already logged in
           setUser(existingUser);
+          setIsAuthenticated(true);
           toast({
             title: "Welcome Back!",
             description: `Signed in as ${existingUser.email}`,
@@ -51,42 +96,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    // Set up auth state listener
-    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
-      console.log('[AuthContext] Auth state changed:', {
-        userPresent: !!firebaseUser,
-        email: firebaseUser?.email
-      });
-      setUser(firebaseUser);
-      setIsLoading(false);
-    });
-
     // Run session checks
     verifySession();
-
-    return () => {
-      console.log('[AuthContext] Cleaning up auth state listener');
-      unsubscribe();
-    };
   }, [toast]);
 
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      const userCredential: UserCredential = await signIn(email, password);
+      const userCredential = await signIn(email, password);
       
-      toast({
-        title: "Sign In Successful",
-        description: `Signed in as ${userCredential.user.email}`,
-      });
-    } catch (error) {
-      console.error('[AuthContext] Login error:', error);
-      toast({
-        title: "Sign In Failed",
-        description: error instanceof Error ? error.message : "Unable to sign in",
-        variant: "destructive",
-      });
-      throw error;
+      if (userCredential.user) {
+        await initializeUserRecord(userCredential.user);
+        setUser(userCredential.user);
+        setIsAuthenticated(true);
+        toast.success('Login successful');
+      }
+    } catch (error: any) {
+      setIsAuthenticated(false);
+      toast.error(error.message || 'Login failed');
     } finally {
       setIsLoading(false);
     }
@@ -117,7 +144,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       setIsLoading(true);
-      await signOut();
+      await signOut(auth);
+      
+      // Reset user state
+      setUser(null);
+      setIsAuthenticated(false);
+      
+      // Optional: Clear any user-specific data or local storage
+      localStorage.removeItem('userToken');
       
       toast({
         title: "Signed Out",
@@ -158,7 +192,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value = {
     user,
-    isAuthenticated: !!user,
+    isAuthenticated,
     isLoading,
     login,
     signup,

@@ -2,7 +2,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
 
-// Ensure Firebase Admin is initialized
+// Initialize Firebase Admin if not already initialized
 if (!admin.apps.length) {
   admin.initializeApp();
 }
@@ -12,9 +12,14 @@ const logger = admin.logger;
 
 /**
  * Cloud Function to reset daily usage limits for all users
- * Runs daily at midnight
+ * Runs every 24 hours
  */
-export const performUserMaintenance = onSchedule('0 0 * * *', async (event) => {
+export const performUserMaintenance = onSchedule({
+  schedule: '0 0 * * *',
+  timeZone: 'America/Chicago',
+  retryCount: 3,
+  memory: '256MiB'
+}, async (event) => {
   try {
     logger.info('Starting daily user maintenance', { event });
 
@@ -56,7 +61,6 @@ export const performUserMaintenance = onSchedule('0 0 * * *', async (event) => {
 
 /**
  * Cloud Function to validate user records on creation
- * Ensures each new user has a usage limit record
  */
 export const validateUserOnCreate = onDocumentCreated('users/{userId}', async (event) => {
   const userId = event.params.userId;
@@ -64,7 +68,7 @@ export const validateUserOnCreate = onDocumentCreated('users/{userId}', async (e
   
   try {
     // Skip admin user
-    if (userData.email === 'hotwodi4@gmail.com') {
+    if (userData?.email === 'hotwodi4@gmail.com') {
       logger.info('Admin user detected. Skipping usage limit creation.');
       return null;
     }

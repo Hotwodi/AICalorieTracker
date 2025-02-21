@@ -6,14 +6,14 @@ import { getAnalytics } from "firebase/analytics";
 
 // Firebase configuration with environment variable fallback
 export const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBMUrnAPcXVwvqwCQLzhv2VJzgKAFDWiko",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "ai-calorie-tracker-3cdc8.firebaseapp.com",
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://ai-calorie-tracker-3cdc8-default-rtdb.firebaseio.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "ai-calorie-tracker-3cdc8",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "ai-calorie-tracker-3cdc8.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "118996352240",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:118996352240:web:7a2d7760d06930d7fe5635",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-ELQC2WPN0V"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || ""
 };
 
 // Validate Firebase configuration
@@ -23,10 +23,11 @@ const validateConfig = (config: typeof firebaseConfig): typeof firebaseConfig =>
     'messagingSenderId', 'appId'
   ];
 
-  for (const key of requiredKeys) {
-    if (!config[key]) {
-      throw new Error(`Firebase configuration missing required key: ${key}`);
-    }
+  const missingKeys = requiredKeys.filter(key => !config[key]);
+  
+  if (missingKeys.length > 0) {
+    console.warn('[Firebase] Missing configuration keys:', missingKeys);
+    console.warn('[Firebase] Attempting to proceed with partial configuration');
   }
 
   return config;

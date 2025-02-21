@@ -11,13 +11,14 @@ interface ImageUploadProps {
 }
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
 
 export const ImageUpload = ({ selectedImage, onImageSelect, onAnalyze, isAnalyzing }: ImageUploadProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const { toast } = useToast();
 
   const validateImage = (file: File): boolean => {
@@ -47,7 +48,7 @@ export const ImageUpload = ({ selectedImage, onImageSelect, onAnalyze, isAnalyzi
       onImageSelect(file);
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
-      setIsCameraActive(false);
+      stopCamera();
     } else {
       onImageSelect(null);
       setPreviewUrl(null);
@@ -57,115 +58,105 @@ export const ImageUpload = ({ selectedImage, onImageSelect, onAnalyze, isAnalyzi
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null;
     handleImageSelect(file);
-    // Reset the input value to allow selecting the same file again
-    event.target.value = '';
+    event.target.value = ""; // Reset input
   };
 
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    const file = event.dataTransfer.files?.[0] || null;
-    handleImageSelect(file);
+  const openCamera = async () => {
+    try {
+      setIsCameraActive(true); // Ensure UI updates before accessing camera
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      setCameraStream(stream);
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (error) {
+      toast({
+        title: "Camera Access Denied",
+        description: "Please allow camera permissions in your browser settings.",
+        variant: "destructive",
+      });
+      console.error("Error accessing camera:", error);
+      setIsCameraActive(false);
+    }
   };
 
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-  };
-
-  const clearImage = () => {
-    onImageSelect(null);
-    setPreviewUrl(null);
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
     setIsCameraActive(false);
   };
 
-  const openCamera = () => {
-    setIsCameraActive(true);
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    canvas.getContext("2d")?.drawImage(videoRef.current, 0, 0);
+
+    canvas.toBlob(blob => {
+      if (blob) {
+        const file = new File([blob], "captured-image.jpg", { type: "image/jpeg" });
+        handleImageSelect(file);
+      }
+    }, "image/jpeg");
   };
 
   useEffect(() => {
-    // Cleanup preview URL to prevent memory leaks
+    if (isCameraActive && !cameraStream) {
+      openCamera();
+    }
+    
     return () => {
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
+      stopCamera();
     };
-  }, [previewUrl]);
-
-  useEffect(() => {
-    if (isCameraActive) {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-        .then(stream => {
-          const video = document.getElementById('camera-preview');
-          video.srcObject = stream;
-        })
-        .catch(err => {
-          console.error("Error accessing camera:", err);
-        });
-    }
   }, [isCameraActive]);
 
   return (
     <div className="space-y-4">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept={ACCEPTED_IMAGE_TYPES.join(',')}
+        className="hidden"
+      />
+
       {isCameraActive ? (
         <div className="relative w-full aspect-video bg-black">
-          <video 
-            id="camera-preview" 
-            autoPlay 
-            className="w-full h-full object-cover"
-          />
+          <video ref={videoRef} autoPlay className="w-full h-full object-cover" />
           <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-4">
-            <Button 
-              variant="destructive" 
-              onClick={() => setIsCameraActive(false)}
-            >
+            <Button variant="destructive" onClick={stopCamera}>
               Cancel
             </Button>
-            <Button 
-              onClick={() => {
-                const video = document.getElementById('camera-preview') as HTMLVideoElement;
-                const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                canvas.getContext('2d')?.drawImage(video, 0, 0);
-                
-                canvas.toBlob((blob) => {
-                  if (blob) {
-                    const file = new File([blob], 'captured-image.jpg', { type: 'image/jpeg' });
-                    handleImageSelect(file);
-                  }
-                }, 'image/jpeg');
-              }}
-            >
+            <Button onClick={capturePhoto}>
               Capture
             </Button>
           </div>
         </div>
       ) : (
         <div
-          className={`
-            border-2 border-dashed rounded-lg p-6
-            ${previewUrl ? 'border-primary' : 'border-muted-foreground/25'}
-            hover:border-primary/50 transition-colors
-            flex flex-col items-center justify-center gap-4
-            cursor-pointer
-          `}
+          className={`border-2 border-dashed rounded-lg p-6 ${
+            previewUrl ? "border-primary" : "border-muted-foreground/25"
+          } hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-4 cursor-pointer`}
           onClick={() => fileInputRef.current?.click()}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
         >
           {previewUrl ? (
             <div className="relative w-full max-w-sm aspect-video">
-              <img
-                src={previewUrl}
-                alt="Preview"
-                className="w-full h-full object-cover rounded-lg"
-              />
+              <img src={previewUrl} alt="Preview" className="w-full h-full object-cover rounded-lg" />
               <Button
                 variant="destructive"
                 size="icon"
-                className="absolute top-2 right-2"
+                className="absolute top-2 right-2 w-6 h-6 rounded-full"
                 onClick={(e) => {
                   e.stopPropagation();
-                  clearImage();
+                  handleImageSelect(null);
                 }}
               >
                 ×
@@ -173,7 +164,7 @@ export const ImageUpload = ({ selectedImage, onImageSelect, onAnalyze, isAnalyzi
             </div>
           ) : (
             <>
-              <div className="p-4 rounded-full bg-primary/10">
+              <div className="mb-4">
                 <ImageIcon className="w-8 h-8 text-primary" />
               </div>
               <div className="text-center space-y-2">
@@ -228,22 +219,6 @@ export const ImageUpload = ({ selectedImage, onImageSelect, onAnalyze, isAnalyzi
           </Button>
         )}
       </div>
-
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        accept={ACCEPTED_IMAGE_TYPES.join(',')}
-        className="hidden"
-      />
-      <input
-        type="file"
-        ref={cameraInputRef}
-        onChange={handleFileChange}
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-      />
     </div>
   );
 };

@@ -4,6 +4,7 @@ import { MacroDisplay } from "@/components/MacroDisplay";
 import { MacroChart } from "@/components/MacroChart";
 import { MacroGoals } from "@/components/MacroGoals";
 import { Calendar } from "@/components/Calendar";
+import { MealSuggestionPanel } from "@/components/MealSuggestionPanel";
 import { analyzeMealImage, type MealAnalysis } from "@/lib/gemini";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
@@ -16,7 +17,7 @@ const Index = () => {
   const [analysis, setAnalysis] = useState<MealAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
-  const { addFoodItem, getTodaysMacroTotals } = useFoodLog();
+  const { addFoodLogEntry, getTodaysMacroTotals } = useFoodLog();
 
   const handleImageSelect = (file: File | null) => {
     setSelectedImage(file);
@@ -40,12 +41,13 @@ const Index = () => {
       setAnalysis(result);
       
       // Add the meal to the food log
-      addFoodItem({
+      addFoodLogEntry({
         name: result.description,
         calories: result.calories,
         protein: result.protein,
         carbs: result.carbs,
-        fat: result.fat
+        fat: result.fat,
+        date: new Date().toISOString()
       });
 
       toast({
@@ -93,6 +95,7 @@ const Index = () => {
                     fat={analysis.fat}
                   />
                   <MacroChart analysis={analysis} />
+                  <MealSuggestionPanel />
                 </div>
               )}
             </div>

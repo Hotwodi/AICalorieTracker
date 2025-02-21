@@ -1,0 +1,20 @@
+{
+    "logs": [
+        {
+            "outputFile": "capacitor.cordova.android.plugins.test.capacitor-cordova-android-plugins-mergeDebugAndroidTestResources-17:/values-watch-v20/values-watch-v20.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\reggi\\.gradle\\caches\\transforms-3\\5ab5a976858504390a1af3458f9d8eb9\\transformed\\appcompat-1.6.1\\res\\values-watch-v20\\values-watch-v20.xml",
+                    "from": {
+                        "startLines": "2,5,8",
+                        "startColumns": "4,4,4",
+                        "startOffsets": "55,214,385",
+                        "endLines": "4,7,10",
+                        "endColumns": "12,12,12",
+                        "endOffsets": "209,380,553"
+                    }
+                }
+            ]
+        }
+    ]
+}

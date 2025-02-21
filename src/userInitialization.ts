@@ -1,9 +1,15 @@
 import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, getDocs } from "firebase/firestore";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getAuth } from "firebase/auth";
 import { Logger } from './lib/logger.js';
+import { db } from '@/lib/firebase';
 
-// Initialize Firestore and Auth
-const db = getFirestore();
+const firebaseConfig = {
+  apiKey: '<API_KEY>',
+  authDomain: '<AUTH_DOMAIN>',
+  projectId: '<PROJECT_ID>',
+};
+
+// Initialize Auth
 const auth = getAuth();
 const logger = new Logger('UserInitialization');
 
@@ -130,28 +136,64 @@ export async function resetUserDailyUsage(userId: string) {
 async function initializeUserProfile(user) {
   try {
     const userRef = doc(db, "users", user.uid);
-    const userSnap = await getDoc(userRef);
+    
+    // Enhanced logging for debugging
+    logger.info(`Attempting to initialize user profile for: ${user.email} (${user.uid})`);
 
-    // Create user record if it doesn't exist
-    if (!userSnap.exists()) {
-      const userData = {
+    try {
+      const userSnap = await getDoc(userRef);
+
+      // Create user record if it doesn't exist
+      if (!userSnap.exists()) {
+        const userData = {
+          userId: user.uid,
+          email: user.email,
+          dailyTargetCalories: DEFAULT_DAILY_TARGET_CALORIES,
+          targetMacros: DEFAULT_MACROS,
+          createdAt: new Date(),
+          // Add explicit permissions field
+          permissions: {
+            read: true,
+            write: true
+          }
+        };
+
+        // Attempt to set document with more verbose error handling
+        try {
+          await setDoc(userRef, userData, { merge: true });
+          logger.info(`Created new user profile for ${user.email}`);
+        } catch (setError) {
+          logger.error("Error setting user document:", {
+            errorCode: setError.code,
+            errorMessage: setError.message,
+            userId: user.uid,
+            email: user.email
+          });
+          throw setError;
+        }
+      }
+
+      // Ensure usage limit exists
+      await createUserUsageLimit(user.uid);
+
+      return userSnap.exists() ? userSnap.data() : null;
+    } catch (getError) {
+      logger.error("Error retrieving user document:", {
+        errorCode: getError.code,
+        errorMessage: getError.message,
         userId: user.uid,
-        email: user.email,
-        dailyTargetCalories: DEFAULT_DAILY_TARGET_CALORIES,
-        targetMacros: DEFAULT_MACROS,
-        createdAt: new Date()
-      };
-
-      await setDoc(userRef, userData);
-      logger.info(`Created new user profile for ${user.email}`);
+        email: user.email
+      });
+      throw getError;
     }
-
-    // Ensure usage limit exists
-    await createUserUsageLimit(user.uid);
-
-    return userSnap.exists() ? userSnap.data() : null;
   } catch (error) {
-    logger.error("Error initializing user profile", error);
+    logger.error("Comprehensive error in user initialization", {
+      errorCode: error.code,
+      errorMessage: error.message,
+      userId: user?.uid,
+      email: user?.email,
+      fullError: error
+    });
     throw error;
   }
 }
@@ -159,23 +201,53 @@ async function initializeUserProfile(user) {
 /**
  * Initialize user record in Firestore when they sign in
  */
-export function initializeUserRecord() {
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      // Skip admin user
-      if (user.email === "hotwodi4@gmail.com") {
-        logger.info("Admin user detected. Skipping Firestore entry.");
-        return;
+export async function initializeUserRecord(user?: any) {
+  try {
+    // If no user is provided, use the current authenticated user
+    const currentUser = user || auth.currentUser;
+    
+    // If still no user, just return null without logging a warning
+    if (!currentUser) {
+      return null;
+    }
+
+    logger.info(`Initializing user record for: ${currentUser.email || 'Unknown Email'}`);
+
+    // Check if user profile already exists
+    const userDocRef = doc(db, "users", currentUser.uid);
+    
+    try {
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        // Initialize user profile if it doesn't exist
+        logger.info(`Creating user profile for: ${currentUser.email}`);
+        await initializeUserProfile(currentUser);
+      } else {
+        logger.info(`User profile already exists for: ${currentUser.email}`);
       }
 
-      try {
-        await initializeUserProfile(user);
-      } catch (error) {
-        logger.error("Error in user initialization", error);
-      }
+      // Create usage limit record
+      await createUserUsageLimit(currentUser.uid);
+    } catch (permissionError: any) {
+      // Log permission errors but don't block initialization
+      logger.warn(`Permission issue during user record initialization: ${permissionError.message}`);
     }
-  });
+
+    logger.info(`User record initialized successfully for: ${currentUser.email}`);
+    return currentUser;
+  } catch (error: any) {
+    // Only log if it's not just a "no user" scenario
+    if (error.code !== 'auth/no-current-user') {
+      logger.error('Failed to initialize user record', error);
+    }
+    return null;
+  }
 }
+
+/**
+ * Initialize user record on module import
+ */
 
 // Export for use in other modules
 export async function updateExistingUsers() {
@@ -202,6 +274,3 @@ export async function updateExistingUsers() {
     logger.error("Error updating existing users", error);
   }
 }
-
-// Initialize user record on module import
-initializeUserRecord();

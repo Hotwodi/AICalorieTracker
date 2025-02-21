@@ -1,0 +1,69 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="capacitor.cordova.android.plugins.test" >
+4
+5    <uses-sdk
+5-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:5:5-74
+6        android:minSdkVersion="22"
+6-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:5:15-41
+7        android:targetSdkVersion="34" />
+7-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:5:42-71
+8
+9    <instrumentation
+9-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:11:5-15:88
+10        android:name="android.test.InstrumentationTestRunner"
+10-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:11:22-75
+11        android:functionalTest="false"
+11-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:14:22-52
+12        android:handleProfiling="false"
+12-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:13:22-53
+13        android:label="Tests for capacitor.cordova.android.plugins.test"
+13-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:15:22-86
+14        android:targetPackage="capacitor.cordova.android.plugins.test" />
+14-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:12:22-84
+15
+16    <permission
+16-->[androidx.core:core:1.9.0] C:\Users\reggi\.gradle\caches\transforms-3\7e6ef638166e99ace5ea09d122dd6835\transformed\core-1.9.0\AndroidManifest.xml:22:5-24:47
+17        android:name="capacitor.cordova.android.plugins.test.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+17-->[androidx.core:core:1.9.0] C:\Users\reggi\.gradle\caches\transforms-3\7e6ef638166e99ace5ea09d122dd6835\transformed\core-1.9.0\AndroidManifest.xml:23:9-81
+18        android:protectionLevel="signature" />
+18-->[androidx.core:core:1.9.0] C:\Users\reggi\.gradle\caches\transforms-3\7e6ef638166e99ace5ea09d122dd6835\transformed\core-1.9.0\AndroidManifest.xml:24:9-44
+19
+20    <uses-permission android:name="capacitor.cordova.android.plugins.test.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+20-->[androidx.core:core:1.9.0] C:\Users\reggi\.gradle\caches\transforms-3\7e6ef638166e99ace5ea09d122dd6835\transformed\core-1.9.0\AndroidManifest.xml:26:5-97
+20-->[androidx.core:core:1.9.0] C:\Users\reggi\.gradle\caches\transforms-3\7e6ef638166e99ace5ea09d122dd6835\transformed\core-1.9.0\AndroidManifest.xml:26:22-94
+21
+22    <application
+22-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:7:5-9:19
+23        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+23-->[androidx.core:core:1.9.0] C:\Users\reggi\.gradle\caches\transforms-3\7e6ef638166e99ace5ea09d122dd6835\transformed\core-1.9.0\AndroidManifest.xml:28:18-86
+24        android:debuggable="true"
+25        android:extractNativeLibs="true" >
+26        <uses-library android:name="android.test.runner" />
+26-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:8:9-60
+26-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:8:23-57
+27
+28        <provider
+28-->[androidx.emoji2:emoji2:1.2.0] C:\Users\reggi\.gradle\caches\transforms-3\88ec1b3b87d2fbd37f0f9b0c2045cc04\transformed\emoji2-1.2.0\AndroidManifest.xml:24:9-32:20
+29            android:name="androidx.startup.InitializationProvider"
+29-->[androidx.emoji2:emoji2:1.2.0] C:\Users\reggi\.gradle\caches\transforms-3\88ec1b3b87d2fbd37f0f9b0c2045cc04\transformed\emoji2-1.2.0\AndroidManifest.xml:25:13-67
+30            android:authorities="capacitor.cordova.android.plugins.test.androidx-startup"
+30-->[androidx.emoji2:emoji2:1.2.0] C:\Users\reggi\.gradle\caches\transforms-3\88ec1b3b87d2fbd37f0f9b0c2045cc04\transformed\emoji2-1.2.0\AndroidManifest.xml:26:13-68
+31            android:exported="false" >
+31-->[androidx.emoji2:emoji2:1.2.0] C:\Users\reggi\.gradle\caches\transforms-3\88ec1b3b87d2fbd37f0f9b0c2045cc04\transformed\emoji2-1.2.0\AndroidManifest.xml:27:13-37
+32            <meta-data
+32-->[androidx.emoji2:emoji2:1.2.0] C:\Users\reggi\.gradle\caches\transforms-3\88ec1b3b87d2fbd37f0f9b0c2045cc04\transformed\emoji2-1.2.0\AndroidManifest.xml:29:13-31:52
+33                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+33-->[androidx.emoji2:emoji2:1.2.0] C:\Users\reggi\.gradle\caches\transforms-3\88ec1b3b87d2fbd37f0f9b0c2045cc04\transformed\emoji2-1.2.0\AndroidManifest.xml:30:17-75
+34                android:value="androidx.startup" />
+34-->[androidx.emoji2:emoji2:1.2.0] C:\Users\reggi\.gradle\caches\transforms-3\88ec1b3b87d2fbd37f0f9b0c2045cc04\transformed\emoji2-1.2.0\AndroidManifest.xml:31:17-49
+35            <meta-data
+35-->[androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\reggi\.gradle\caches\transforms-3\4fe88986b440deb383dd569410870010\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:31:13-33:52
+36                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+36-->[androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\reggi\.gradle\caches\transforms-3\4fe88986b440deb383dd569410870010\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:32:17-78
+37                android:value="androidx.startup" />
+37-->[androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\reggi\.gradle\caches\transforms-3\4fe88986b440deb383dd569410870010\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:33:17-49
+38        </provider>
+39    </application>
+40
+41</manifest>
