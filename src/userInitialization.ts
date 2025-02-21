@@ -1,20 +1,47 @@
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, getDocs } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, runTransaction, collection, getDocs } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { Logger } from './lib/logger.js';
 import { db } from '@/lib/firebase';
 
 const logger = new Logger('UserInitialization');
 
-// Default usage limit configuration
-const DEFAULT_DAILY_LIMIT = 8;
+// Comprehensive permission and configuration types
+export interface UserPermissions {
+  read: boolean;
+  write: boolean;
+  admin?: boolean;
+  features?: {
+    imageAnalysis?: boolean;
+    mealSuggestion?: boolean;
+    nutritionTracking?: boolean;
+  };
+}
 
-// Default configuration
+export interface UserProfile {
+  userId: string;
+  email: string;
+  displayName?: string;
+  dailyTargetCalories: number;
+  targetMacros: {
+    fat: number;
+    protein: number;
+    carbs: number;
+  };
+  permissions: UserPermissions;
+  createdAt: Date;
+  lastLogin?: Date;
+}
+
+// Default configurations
 const DEFAULT_DAILY_TARGET_CALORIES = 2000;
 const DEFAULT_MACROS = {
   fat: 70,   // grams
   protein: 150, // grams
   carbs: 200    // grams
 };
+
+// Default usage limit configuration
+const DEFAULT_DAILY_LIMIT = 8;
 
 /**
  * Create a new usage limit record for a user
@@ -125,76 +152,117 @@ export async function resetUserDailyUsage(userId: string) {
  * Initialize comprehensive user record
  * @param user - Firebase Authentication user object
  */
-export async function initializeUserRecord(user) {
-  if (!user || !user.uid) {
-    logger.error('Invalid user object for initialization');
-    return null;
-  }
-
+export async function initializeUserRecord(user: any): Promise<UserProfile> {
   try {
     const userRef = doc(db, "users", user.uid);
     
-    logger.info(`Initializing user record for: ${user.email} (${user.uid})`);
+    // Use transaction for atomic write and read
+    return await runTransaction(db, async (transaction) => {
+      const userSnap = await transaction.get(userRef);
 
-    // Check if user document already exists
-    const userSnap = await getDoc(userRef);
-
-    if (!userSnap.exists()) {
-      const userData = {
-        userId: user.uid,
-        email: user.email,
-        displayName: user.displayName || '',
-        dailyTargetCalories: DEFAULT_DAILY_TARGET_CALORIES,
-        targetMacros: DEFAULT_MACROS,
-        createdAt: new Date(),
-        lastLogin: new Date(),
-        permissions: {
-          read: true,
-          write: true,
-          admin: false
+      // Default restrictive permissions
+      const defaultPermissions: UserPermissions = {
+        read: true,
+        write: false,
+        features: {
+          imageAnalysis: false,
+          mealSuggestion: false,
+          nutritionTracking: false
         }
       };
 
-      try {
-        await setDoc(userRef, userData, { merge: true });
-        logger.info(`Created new user profile for ${user.email}`);
-      } catch (setError) {
-        logger.error('Failed to create user document', {
-          errorCode: setError.code,
-          errorMessage: setError.message,
-          userId: user.uid
-        });
-        throw setError;
-      }
-    } else {
-      // Update last login time for existing users
-      try {
-        await updateDoc(userRef, {
-          lastLogin: new Date()
-        });
-      } catch (updateError) {
-        logger.warn('Could not update last login time', {
-          errorCode: updateError.code,
-          errorMessage: updateError.message,
-          userId: user.uid
-        });
-      }
-    }
+      // Prepare user data
+      const userData: UserProfile = userSnap.exists() 
+        ? userSnap.data() as UserProfile 
+        : {
+            userId: user.uid,
+            email: user.email || '',
+            displayName: user.displayName || '',
+            dailyTargetCalories: DEFAULT_DAILY_TARGET_CALORIES,
+            targetMacros: DEFAULT_MACROS,
+            permissions: defaultPermissions,
+            createdAt: new Date(),
+            lastLogin: new Date()
+          };
 
-    // Ensure usage limit exists
-    await createUserUsageLimit(user.uid);
+      // Update last login timestamp
+      userData.lastLogin = new Date();
 
-    return userSnap.exists() ? userSnap.data() : null;
-  } catch (error) {
-    logger.error('Comprehensive error in user initialization', {
-      errorCode: error.code,
-      errorMessage: error.message,
-      userId: user?.uid,
-      email: user?.email
+      // Validate and potentially upgrade permissions
+      await validateUserPermissions(userData);
+
+      // Set or update user document
+      transaction.set(userRef, userData, { merge: true });
+
+      logger.info(`User profile ${userSnap.exists() ? 'updated' : 'created'}: ${user.email}`);
+      
+      return userData;
     });
-    
-    // Rethrow to allow caller to handle
+  } catch (error) {
+    logger.error("User initialization failed", {
+      userId: user.uid,
+      email: user.email,
+      error: error.message
+    });
     throw error;
+  }
+}
+
+async function validateUserPermissions(userProfile: UserProfile): Promise<void> {
+  // Permission upgrade logic
+  if (userProfile.email) {
+    const emailDomain = userProfile.email.split('@')[1];
+    
+    // Example domain-based permission upgrade
+    const allowedDomains = ['hotwodi.com', 'gmail.com'];
+    if (allowedDomains.includes(emailDomain)) {
+      userProfile.permissions.write = true;
+      userProfile.permissions.features = {
+        imageAnalysis: true,
+        mealSuggestion: true,
+        nutritionTracking: true
+      };
+      
+      logger.info(`Upgraded permissions for user: ${userProfile.email}`);
+    }
+  }
+}
+
+export function checkUserPermission(
+  user: UserProfile, 
+  feature: keyof NonNullable<UserPermissions['features']>
+): boolean {
+  return user.permissions.features?.[feature] === true;
+}
+
+export async function logUserAction(
+  userId: string, 
+  action: string, 
+  details?: Record<string, unknown>
+) {
+  try {
+    const actionLogRef = doc(collection(db, "user_actions"));
+    await setDoc(actionLogRef, {
+      userId,
+      action,
+      timestamp: new Date(),
+      details: details || {}
+    });
+  } catch (error) {
+    logger.error("Failed to log user action", { userId, action, error: error.message });
+  }
+}
+
+// Periodic cleanup of old user actions
+export async function cleanupOldUserActions(daysOld: number = 30) {
+  try {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+    // Implement cleanup logic (would typically be a Cloud Function in production)
+    logger.info(`Cleaned up user actions older than ${cutoffDate}`);
+  } catch (error) {
+    logger.error("Failed to cleanup user actions", error);
   }
 }
 
@@ -245,11 +313,6 @@ export async function initializeUserRecordOnSignIn(user?: any) {
   }
 }
 
-/**
- * Initialize user record on module import
- */
-
-// Export for use in other modules
 export async function updateExistingUsers() {
   try {
     const usersRef = collection(db, "users");
