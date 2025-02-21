@@ -13,7 +13,7 @@ interface ImageUploadProps {
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
 
-export const ImageUpload = ({ selectedImage, onImageSelect, onAnalyze, isAnalyzing }: ImageUploadProps) => {
+export default function ImageUpload({ selectedImage, onImageSelect, onAnalyze, isAnalyzing }: ImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -221,4 +221,4 @@ export const ImageUpload = ({ selectedImage, onImageSelect, onAnalyze, isAnalyzi
       </div>
     </div>
   );
-};
+}
