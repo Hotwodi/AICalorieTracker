@@ -1,63 +1,51 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { Button } from "@/components/ui/button";
 import { useAuth } from '@/context/AuthContext';
-import { Button } from '@/components/ui/button';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
   DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import { 
   NavigationMenu, 
   NavigationMenuItem, 
   NavigationMenuLink, 
   NavigationMenuList, 
   navigationMenuTriggerStyle 
-} from '@/components/ui/navigation-menu';
-import Logo from '@/assets/logo.png';
-import { LogOut } from 'lucide-react';
-import { useToast } from "@/components/ui/use-toast";
+} from "@/components/ui/navigation-menu";
+import Logo from '@/assets/logo.png'; // Import the logo
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { logout, user } = useAuth();
-  const { toast } = useToast();
-
-  const handleSignOut = async () => {
-    try {
-      await logout();
-      toast({
-        title: "Signed Out",
-        description: "You have been successfully signed out.",
-        variant: "default"
-      });
-    } catch (error: any) {
-      toast({
-        title: "Sign Out Error",
-        description: error.message || "An error occurred while signing out.",
-        variant: "destructive"
-      });
-    }
-  };
+  const { currentUser, signOut } = useAuth();
 
   return (
     <div className="flex flex-col min-h-screen">
       <header className="bg-white shadow-md">
         <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          {/* Logo */}
-          <Link to="/" className="flex items-center">
+          {/* Logo and Project Name */}
+          <div className="flex items-center space-x-4">
             <img 
               src={Logo} 
               alt="Smart Nutrition Logo" 
-              className="h-10 w-10 mr-2" 
+              className="h-10 w-10 object-contain" 
             />
             <div className="text-xl font-bold">Smart Nutrition</div>
-          </Link>
+          </div>
 
           {/* Navigation Menu */}
           <NavigationMenu>
             <NavigationMenuList>
-              {user ? (
+              <NavigationMenuItem>
+                <Link to="/">
+                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                    Home
+                  </NavigationMenuLink>
+                </Link>
+              </NavigationMenuItem>
+
+              {currentUser && (
                 <>
                   <NavigationMenuItem>
                     <Link to="/dashboard">
@@ -66,14 +54,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                       </NavigationMenuLink>
                     </Link>
                   </NavigationMenuItem>
-                  <NavigationMenuItem>
-                    <Link to="/calendar">
-                      <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                        Calendar
-                      </NavigationMenuLink>
-                    </Link>
-                  </NavigationMenuItem>
-                  {user.email === 'reggietest655@gmail.com' && (
+                  
+                  {currentUser.email === 'reggietest655@gmail.com' && (
                     <NavigationMenuItem>
                       <Link to="/admin">
                         <NavigationMenuLink className={navigationMenuTriggerStyle()}>
@@ -83,32 +65,28 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     </NavigationMenuItem>
                   )}
                 </>
-              ) : (
-                <NavigationMenuItem>
-                  <Link to="/login">
-                    <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                      Login
-                    </NavigationMenuLink>
-                  </Link>
-                </NavigationMenuItem>
               )}
             </NavigationMenuList>
           </NavigationMenu>
 
           {/* User Menu */}
-          {user && (
+          {currentUser ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">
-                  {user.displayName || user.email}
+                  {currentUser.email || 'User'}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onClick={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4" /> Logout
+                <DropdownMenuItem onClick={signOut}>
+                  Logout
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          ) : (
+            <Link to="/login">
+              <Button>Login</Button>
+            </Link>
           )}
         </div>
       </header>
@@ -119,10 +97,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-100 py-4">
-        <div className="container mx-auto px-4 text-center">
-          <p>&copy; {new Date().getFullYear()} Smart Nutrition. All rights reserved.</p>
-        </div>
+      <footer className="bg-gray-100 py-4 text-center">
+        <p>&copy; {new Date().getFullYear()} Smart Nutrition. All rights reserved.</p>
       </footer>
     </div>
   );
