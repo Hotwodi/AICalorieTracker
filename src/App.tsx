@@ -49,7 +49,15 @@ const ProtectedRoute: React.FC<{
 }> = ({ children, adminOnly = false }) => {
   const { isAuthenticated, isLoading, user } = useAuth();
 
+  console.log('[ProtectedRoute] Current state:', {
+    isAuthenticated,
+    isLoading,
+    user: user ? user.email : 'No user',
+    adminOnly
+  });
+
   if (isLoading) {
+    console.log('[ProtectedRoute] Still loading, showing loader');
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin" />
@@ -58,13 +66,16 @@ const ProtectedRoute: React.FC<{
   }
 
   if (!isAuthenticated) {
+    console.log('[ProtectedRoute] Not authenticated, redirecting to home');
     return <Navigate to="/" replace />;
   }
 
   if (adminOnly && (!user || user.role !== 'admin')) {
+    console.log('[ProtectedRoute] Not an admin, redirecting to index');
     return <Navigate to="/index" replace />;
   }
 
+  console.log('[ProtectedRoute] Rendering protected content');
   return <>{children}</>;
 };
 

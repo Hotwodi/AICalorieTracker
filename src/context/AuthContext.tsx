@@ -37,7 +37,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         console.log('[AuthContext] Auth state changed:', {
           userPresent: !!firebaseUser,
-          email: firebaseUser?.email
+          email: firebaseUser?.email,
+          isLoading: true
         });
 
         if (firebaseUser) {
@@ -47,8 +48,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           
           // Initialize user record
           await initializeUserRecord(firebaseUser);
+          
+          console.log('[AuthContext] User initialized successfully');
         } else {
           // No user is signed in
+          console.log('[AuthContext] No user signed in');
           setUser(null);
           setIsAuthenticated(false);
         }
@@ -57,6 +61,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
         setIsAuthenticated(false);
       } finally {
+        console.log('[AuthContext] Setting isLoading to false');
         setIsLoading(false);
       }
     }, (error) => {
