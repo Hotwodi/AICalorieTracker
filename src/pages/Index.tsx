@@ -50,13 +50,14 @@ const Index: React.FC = () => {
       setAnalysis(analyzedMeal);
       
       toast({
-        title: "Meal Analysis Complete",
+        title: "Meal Analyzed",
         description: "Your meal has been successfully analyzed.",
       });
     } catch (error) {
+      console.error('Image analysis error:', error);
       toast({
-        title: "Analysis Error",
-        description: "Failed to analyze the image. Please try again.",
+        title: "Analysis Failed",
+        description: "Unable to analyze the image. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -69,57 +70,58 @@ const Index: React.FC = () => {
       <div className="flex justify-center mb-8">
         <img 
           src={LogoImage} 
-          alt="AI Calorie Tracker Logo" 
-          className="h-20 w-auto"
+          alt="Snap Nutrition Guide Logo" 
+          className="w-48 h-auto"
         />
       </div>
-      
       <MealSuggestionProvider>
-        <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-screen">
-          <Tabs defaultValue="track" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="track">Track Meal</TabsTrigger>
-              <TabsTrigger value="progress">View Progress</TabsTrigger>
-            </TabsList>
+        <div className="flex flex-col items-center justify-center min-h-screen">
+          <div className="container mx-auto px-4 py-8">
+            <Tabs defaultValue="track" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="track">Track Meal</TabsTrigger>
+                <TabsTrigger value="progress">View Progress</TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="track" className="space-y-4">
-              <Card className="p-6">
-                <h2 className="text-2xl font-bold mb-4">Track Your Meal</h2>
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <ImageUpload
-                      onImageSelect={handleImageSelect}
-                      onAnalyzeImage={handleAnalyzeImage}
-                      selectedImage={selectedImage}
-                      isAnalyzing={isAnalyzing}
-                    />
-                  </div>
-                  {analysis && (
+              <TabsContent value="track" className="space-y-4">
+                <Card className="p-6">
+                  <h2 className="text-2xl font-bold mb-4">Track Your Meal</h2>
+                  <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-4">
-                      <MacroDisplay
-                        calories={analysis.calories}
-                        protein={analysis.protein}
-                        carbs={analysis.carbs}
-                        fat={analysis.fat}
+                      <ImageUpload
+                        onImageSelect={handleImageSelect}
+                        selectedImage={selectedImage}
+                        onAnalyze={handleAnalyzeImage}
+                        isAnalyzing={isAnalyzing}
                       />
-                      <MacroChart analysis={analysis} />
-                      <MealSuggestionPanel />
                     </div>
-                  )}
-                </div>
-              </Card>
-            </TabsContent>
+                    {analysis && (
+                      <div className="space-y-4">
+                        <MacroDisplay
+                          calories={analysis.calories}
+                          protein={analysis.protein}
+                          carbs={analysis.carbs}
+                          fat={analysis.fat}
+                        />
+                        <MacroChart analysis={analysis} />
+                        <MealSuggestionPanel />
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </TabsContent>
 
-            <TabsContent value="progress">
-              <Card className="p-6">
-                <h2 className="text-2xl font-bold mb-4">Your Progress</h2>
-                <div className="space-y-6">
-                  <MacroGoals />
-                  <Calendar />
-                </div>
-              </Card>
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="progress">
+                <Card className="p-6">
+                  <h2 className="text-2xl font-bold mb-4">Your Progress</h2>
+                  <div className="space-y-6">
+                    <MacroGoals />
+                    <Calendar />
+                  </div>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
       </MealSuggestionProvider>
     </div>

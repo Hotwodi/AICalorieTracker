@@ -10,7 +10,7 @@ export function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const { login } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -18,15 +18,10 @@ export function SignIn() {
     setError(null);
 
     try {
-      const user = await login(email, password);
+      await signIn(email, password);
       
-      // Explicitly check for user and navigate
-      if (user) {
-        // Use replace to prevent going back to login page
-        navigate('/index', { replace: true });
-      } else {
-        setError('Login failed. Please try again.');
-      }
+      // Navigate to index page
+      navigate('/index', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during sign-in');
     }
