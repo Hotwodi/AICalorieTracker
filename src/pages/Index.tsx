@@ -50,14 +50,13 @@ const Index: React.FC = () => {
       setAnalysis(analyzedMeal);
       
       toast({
-        title: "Meal Analyzed",
+        title: "Meal Analysis Complete",
         description: "Your meal has been successfully analyzed.",
       });
     } catch (error) {
-      console.error('Image analysis error:', error);
       toast({
-        title: "Analysis Failed",
-        description: "Unable to analyze the image. Please try again.",
+        title: "Analysis Error",
+        description: "Failed to analyze the image. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -66,18 +65,17 @@ const Index: React.FC = () => {
   };
 
   return (
-    <MealSuggestionProvider>
-      <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-screen">
-        {/* Company Logo */}
-        <div className="mb-8 w-full flex justify-center">
-          <img 
-            src={LogoImage} 
-            alt="AI Calorie Tracker Logo" 
-            className="max-w-xs md:max-w-sm lg:max-w-md h-auto object-contain"
-          />
-        </div>
-
-        <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-center mb-8">
+        <img 
+          src={LogoImage} 
+          alt="AI Calorie Tracker Logo" 
+          className="h-20 w-auto"
+        />
+      </div>
+      
+      <MealSuggestionProvider>
+        <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-screen">
           <Tabs defaultValue="track" className="space-y-4">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="track">Track Meal</TabsTrigger>
@@ -91,8 +89,8 @@ const Index: React.FC = () => {
                   <div className="space-y-4">
                     <ImageUpload
                       onImageSelect={handleImageSelect}
+                      onAnalyzeImage={handleAnalyzeImage}
                       selectedImage={selectedImage}
-                      onAnalyze={handleAnalyzeImage}
                       isAnalyzing={isAnalyzing}
                     />
                   </div>
@@ -123,8 +121,8 @@ const Index: React.FC = () => {
             </TabsContent>
           </Tabs>
         </div>
-      </div>
-    </MealSuggestionProvider>
+      </MealSuggestionProvider>
+    </div>
   );
 };
 
