@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 interface AuthContextType {
   currentUser: User | null;
   userProfile: UserProfile | null;
-  signIn: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   hasFeatureAccess: (feature: keyof NonNullable<UserProfile['permissions']['features']>) => boolean;
@@ -59,7 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const login = async (email: string, password: string) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       toast.success('Successfully signed in');
@@ -99,13 +99,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const hasFeatureAccess = (feature: keyof NonNullable<UserProfile['permissions']['features']>): boolean => {
-    return userProfile ? checkUserPermission(userProfile, feature) : false;
+    return userProfile?.permissions?.features?.[feature] === true;
   };
 
   const value = {
     currentUser,
     userProfile,
-    signIn,
+    login,
     signUp,
     signOut,
     hasFeatureAccess
