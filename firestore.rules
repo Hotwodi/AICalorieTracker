@@ -2,6 +2,11 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Temporarily allow all authenticated users full access during development
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
     // Helper functions
     function isAuthenticated() {
       return request.auth != null;
@@ -11,66 +16,59 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    function hasPermission(permission) {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return isAuthenticated() && 
-        (userDoc.exists ? userDoc.data.permissions[permission] == true : false);
-    }
-
     function isAdmin() {
-      return hasPermission('admin');
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     // User document rules
     match /users/{userId} {
-      // Allow users to create their own document if authenticated
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      
-      // Allow read only for the owner or admin
       allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId) || isAdmin();
       
-      // Allow write only if the user owns the document and has write permission, or is an admin
-      allow update, delete: if (isOwner(userId) && hasPermission('write')) || isAdmin();
-      
-      // Specific feature permissions
-      match /features/{featureName} {
-        allow read: if isOwner(userId) && 
-          get(/databases/$(database)/documents/users/$(userId)).data.permissions.features[featureName] == true;
-        allow write: if false; // Prevent direct feature flag modifications
+      // User's upload rules
+      match /upload_rules/{ruleId} {
+        allow read: if isOwner(userId);
+        allow write: if false; // Only allow updates through Cloud Functions
+      }
+
+      // User's notifications
+      match /notifications/{notificationId} {
+        allow read: if isOwner(userId);
+        allow write: if false; // Only allow updates through Cloud Functions
+      }
+
+      // User's photos
+      match /photos/{photoId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && canUploadPhoto(userId);
+        allow delete: if isOwner(userId);
+      }
+
+      // User's subscription data
+      match /subscription/{subscriptionId} {
+        allow read: if isOwner(userId);
+        allow write: if false; // Only allow updates through Cloud Functions
       }
     }
 
-    // Usage limits tracking
-    match /usage_limits/{userId} {
-      allow read, write: if isOwner(userId) || isAdmin();
+    // Helper function to check if user can upload more photos
+    function canUploadPhoto(userId) {
+      let userDoc = get(/databases/$(database)/documents/users/$(userId));
+      let uploadRules = get(/databases/$(database)/documents/users/$(userId)/upload_rules/daily);
+      
+      let isTrialActive = userDoc.data.subscription == 'free' && 
+                         userDoc.data.freeTrialPhotoUploadsEndDate > request.time;
+      
+      let dailyLimit = isTrialActive ? 3 : 
+                      (userDoc.data.subscription == 'premium' ? 8 : 0);
+      
+      return uploadRules.data.count < dailyLimit;
     }
 
-    // Meal suggestions
-    match /meal_suggestions/{suggestionId} {
-      allow read: if hasPermission('features.mealSuggestion');
-      allow create, update, delete: if hasPermission('features.mealSuggestion') && hasPermission('write');
-    }
-
-    // Image analysis results
-    match /image_analysis/{analysisId} {
-      allow read: if hasPermission('features.imageAnalysis');
-      allow create, update, delete: if hasPermission('features.imageAnalysis') && hasPermission('write');
-    }
-
-    // User actions logging
-    match /user_actions/{actionId} {
-      allow create: if isAuthenticated();
-      allow read, delete: if isAdmin();
-    }
-
-    // Nutrition tracking
-    match /nutrition_logs/{userId} {
-      allow read, write: if isOwner(userId) && hasPermission('features.nutritionTracking');
-    }
-
-    // Default fallback (very restrictive)
-    match /{document=**} {
-      allow read, write: if false;
+    // Admin-only collections
+    match /admin/{document=**} {
+      allow read, write: if isAdmin();
     }
   }
 }

@@ -1,37 +1,36 @@
 import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 import { 
-  getAuth, 
   signOut as firebaseSignOut,
-  signInWithEmailAndPassword,
+  signInWithEmailAndPassword as firebaseSignIn,
   createUserWithEmailAndPassword,
   updateProfile,
-  AuthError,
   onAuthStateChanged as firebaseOnAuthStateChanged,
   type User,
   type UserCredential
 } from 'firebase/auth';
 import { 
-  getFirestore,
   doc, 
   setDoc,
-  getDoc,
-  connectFirestoreEmulator,
-  collection, 
-  addDoc, 
-  query, 
-  where, 
-  getDocs, 
-  updateDoc, 
-  deleteDoc
+  getDoc
 } from 'firebase/firestore';
-import { firebaseConfig } from './firebaseConfig';
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
+};
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Verbose error logging
 const logAuthError = (error: unknown, context: string) => {
   console.error(`[Firebase Auth Error - ${context}]`, error);
   if (error instanceof Error) {
@@ -43,48 +42,23 @@ const logAuthError = (error: unknown, context: string) => {
   }
 };
 
-// Custom error handler for Firebase authentication
 const handleFirebaseAuthError = (error: unknown, context: string = 'Unknown'): never => {
   logAuthError(error, context);
-  
   if (error instanceof Error) {
-    switch (error.message) {
-      case 'Firebase: Error (auth/email-already-in-use).':
-        throw new Error('Email is already registered. Please sign in or use a different email.');
-      case 'Firebase: Error (auth/invalid-email).':
-        throw new Error('Invalid email address. Please check and try again.');
-      case 'Firebase: Error (auth/weak-password).':
-        throw new Error('Password is too weak. Please choose a stronger password.');
-      case 'Firebase: Error (auth/invalid-credential).':
-        throw new Error('Invalid credentials. Please check your email and password.');
-      default:
-        throw new Error(`Authentication failed: ${error.message}`);
-    }
+    throw new Error(error.message);
   }
-  
   throw new Error(`Unexpected authentication error in ${context}`);
 };
 
-// Helper function to create user document
 const createUserDocument = async (user: User, additionalData?: { displayName?: string }) => {
   if (!user) return;
-
   const userRef = doc(db, 'users', user.uid);
-  
   try {
     const userSnapshot = await getDoc(userRef);
-
-    console.log('[Firebase] Checking user document:', {
-      userId: user.uid,
-      email: user.email,
-      documentExists: userSnapshot.exists()
-    });
-
     if (!userSnapshot.exists()) {
       const { email } = user;
       const { displayName } = additionalData || {};
       const createdAt = new Date();
-
       const userData = {
         displayName: displayName || user.displayName || 'User',
         email,
@@ -95,102 +69,67 @@ const createUserDocument = async (user: User, additionalData?: { displayName?: s
           carbs: 250,
           fat: 70
         },
-        // Add explicit permissions
         permissions: {
           read: true,
           write: true
         }
       };
-
-      try {
-        await setDoc(userRef, userData, { merge: true });
-        console.log('[Firebase] Created user document successfully', { userId: user.uid });
-      } catch (setError) {
-        console.error('[Firebase] Error creating user document:', {
-          userId: user.uid,
-          errorCode: setError.code,
-          errorMessage: setError.message
-        });
-        throw setError;
-      }
+      await setDoc(userRef, userData, { merge: true });
     }
   } catch (error) {
-    console.error('[Firebase] Error in createUserDocument:', {
-      userId: user.uid,
-      errorCode: error.code,
-      errorMessage: error.message
-    });
+    console.error('[Firebase] Error in createUserDocument:', error);
     throw error;
   }
 };
 
-// Check for existing session
 const checkSession = async (): Promise<User | null> => {
   return new Promise((resolve, reject) => {
-    const unsubscribe = firebaseOnAuthStateChanged(
-      auth, 
-      (user) => {
-        unsubscribe();
-        resolve(user);
-      },
-      (error) => {
-        unsubscribe();
-        reject(error);
-      }
-    );
+    const unsubscribe = firebaseOnAuthStateChanged(auth, (user) => {
+      unsubscribe();
+      resolve(user);
+    }, (error) => {
+      unsubscribe();
+      reject(error);
+    });
   });
 };
 
-// Sign In method
 const signIn = async (email: string, password: string): Promise<UserCredential> => {
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    return userCredential;
+    return await firebaseSignIn(auth, email, password);
   } catch (error) {
-    handleFirebaseAuthError(error, 'Sign In');
-    // This line will never be reached due to the error handling above
+    console.error('Error signing in:', error);
     throw error;
   }
 };
 
-// Sign Up method
-const signUp = async (email: string, password: string, displayName?: string): Promise<UserCredential> => {
+const signUp = async (email: string, password: string, displayName: string): Promise<UserCredential> => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-
-    // Update profile with display name if provided
-    if (displayName) {
-      await updateProfile(user, { displayName });
-    }
-
-    // Create user document in Firestore
-    await createUserDocument(user, { displayName });
-
+    await updateProfile(userCredential.user, { displayName });
+    await createUserDocument(userCredential.user, { displayName });
     return userCredential;
   } catch (error) {
-    handleFirebaseAuthError(error, 'Sign Up');
-    // This line will never be reached due to the error handling above
+    console.error('Error signing up:', error);
     throw error;
   }
 };
 
-// Sign Out method
 const signOut = async () => {
   try {
     await firebaseSignOut(auth);
+    return true;
   } catch (error) {
-    handleFirebaseAuthError(error, 'Sign Out');
+    console.error('Error signing out:', error);
+    throw error;
   }
 };
 
-// Update user profile
 const updateUserProfile = async (displayName: string) => {
   const currentUser = auth.currentUser;
   if (!currentUser) {
     throw new Error('No user is currently signed in');
   }
-
   try {
     await updateProfile(currentUser, { displayName });
     await createUserDocument(currentUser, { displayName });
@@ -199,140 +138,12 @@ const updateUserProfile = async (displayName: string) => {
   }
 };
 
-// Send password reset email
-const sendPasswordReset = async (email: string) => {
-  try {
-    // Implement password reset logic here
-  } catch (error) {
-    handleFirebaseAuthError(error, 'Password Reset');
-  }
-};
-
-// Define the structure for a calendar entry
-interface CalendarEntry {
-  id?: string;
-  userId: string;
-  date: string;
-  notes?: string;
-  events?: string[];
-  nutritionGoals?: {
-    calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-  };
-  completed?: boolean;
-}
-
-// Add calendar-related Firebase functions
-const addCalendarEntry = async (
-  userId: string, 
-  entry: Omit<CalendarEntry, 'id' | 'userId'>
-): Promise<string> => {
-  try {
-    const calendarRef = collection(db, 'calendar');
-    const docRef = await addDoc(calendarRef, {
-      ...entry,
-      userId
-    });
-    return docRef.id;
-  } catch (error) {
-    console.error('[Firebase] Error adding calendar entry:', error);
-    throw new Error('Failed to add calendar entry');
-  }
-};
-
-const getCalendarEntriesByUser = async (
-  userId: string, 
-  startDate?: string, 
-  endDate?: string
-): Promise<CalendarEntry[]> => {
-  if (!userId) {
-    console.error('[Firebase] getCalendarEntriesByUser: No user ID provided');
-    throw new Error('User ID is required to fetch calendar entries');
-  }
-
-  try {
-    // Construct the base query
-    let entriesQuery = query(
-      collection(db, 'calendar_entries'),
-      where('userId', '==', userId)
-    );
-
-    // Add date range filtering if both start and end dates are provided
-    if (startDate && endDate) {
-      entriesQuery = query(
-        entriesQuery,
-        where('date', '>=', startDate),
-        where('date', '<=', endDate)
-      );
-    }
-
-    // Execute the query
-    const querySnapshot = await getDocs(entriesQuery);
-
-    // Map query results to CalendarEntry type
-    const entries: CalendarEntry[] = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as CalendarEntry));
-
-    // Log successful retrieval
-    console.log('[Firebase] Calendar entries retrieved', {
-      userId,
-      startDate,
-      endDate,
-      entryCount: entries.length
-    });
-
-    return entries;
-  } catch (error) {
-    // Detailed error logging
-    console.error('[Firebase] Error fetching calendar entries', {
-      userId,
-      startDate,
-      endDate,
-      errorName: error.name,
-      errorMessage: error.message,
-      errorCode: error.code
-    });
-
-    // Throw a more informative error
-    switch (error.code) {
-      case 'permission-denied':
-        throw new Error('Insufficient permissions to access calendar entries');
-      case 'unavailable':
-        throw new Error('Firestore service is currently unavailable');
-      default:
-        throw new Error(`Failed to retrieve calendar entries: ${error.message}`);
-    }
-  }
-};
-
-const updateCalendarEntry = async (
-  entryId: string, 
-  updates: Partial<CalendarEntry>
-): Promise<void> => {
-  try {
-    const entryRef = doc(db, 'calendar', entryId);
-    await updateDoc(entryRef, updates);
-  } catch (error) {
-    console.error('[Firebase] Error updating calendar entry:', error);
-    throw new Error('Failed to update calendar entry');
-  }
-};
-
-const deleteCalendarEntry = async (entryId: string): Promise<void> => {
-  try {
-    const entryRef = doc(db, 'calendar', entryId);
-    await deleteDoc(entryRef);
-  } catch (error) {
-    console.error('[Firebase] Error deleting calendar entry:', error);
-    throw new Error('Failed to delete calendar entry');
-  }
-};
+// Export the signInWithEmailAndPassword function
+export const signInWithEmailAndPassword = firebaseSignIn;
 
 export {
+  db,
+  auth,
   signIn,
   signUp,
   signOut,
@@ -340,13 +151,5 @@ export {
   checkSession,
   firebaseOnAuthStateChanged as onAuthStateChanged,
   User,
-  UserCredential,
-  CalendarEntry,
-  addCalendarEntry,
-  getCalendarEntriesByUser,
-  updateCalendarEntry,
-  deleteCalendarEntry,
-  sendPasswordReset,
-  auth,
-  db
+  UserCredential
 };

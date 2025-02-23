@@ -1,204 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from 'date-fns';
-import { useAuth } from '@/context/AuthContext';
-import { 
-  addCalendarEntry, 
-  getCalendarEntriesByUser, 
-  updateCalendarEntry, 
-  CalendarEntry 
-} from '@/lib/firebase';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
-} from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/use-toast";
-import { Logger } from '@/lib/logger';
+import React, { useState } from 'react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday, isWithinInterval } from 'date-fns';
+import { useFoodLog } from "@/context/FoodLogContext";
+import { Flame } from "lucide-react";
 
-export const Calendar: React.FC = () => {
-  const { user, userProfile } = useAuth();
-  const { toast } = useToast();
-  const logger = new Logger('Calendar');
+interface CalendarProps {
+  // Add any specific props you might need
+}
 
+export const Calendar: React.FC<CalendarProps> = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [calendarEntries, setCalendarEntries] = useState<{[key: string]: CalendarEntry}>({});
-  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  const [dayNote, setDayNote] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { foodLog } = useFoodLog();
 
-  // Fetch calendar entries for the current month
-  useEffect(() => {
-    const fetchEntries = async () => {
-      // Validate user and permissions
-      if (!user) {
-        setError('User not authenticated');
-        return;
-      }
-
-      if (!userProfile?.permissions?.read) {
-        setError('Insufficient permissions to view calendar');
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-dd');
-        const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
-        
-        const entries = await getCalendarEntriesByUser(
-          user.uid, 
-          monthStart, 
-          monthEnd
-        );
-
-        // Convert entries to a map for easy lookup
-        const entriesMap = entries.reduce((acc, entry) => {
-          acc[entry.date] = entry;
-          return acc;
-        }, {} as {[key: string]: CalendarEntry});
-
-        setCalendarEntries(entriesMap);
-        logger.info('Calendar entries fetched successfully', { 
-          entryCount: entries.length 
-        });
-      } catch (error) {
-        const errorMessage = error instanceof Error 
-          ? error.message 
-          : 'Unknown error fetching calendar entries';
-        
-        setError(errorMessage);
-        logger.error('Failed to fetch calendar entries', { 
-          error: errorMessage,
-          userId: user?.uid 
-        });
-
-        toast({
-          title: "Error Loading Calendar",
-          description: errorMessage,
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchEntries();
-  }, [currentDate, user, userProfile, toast]);
-
-  // Render loading or error state
-  if (isLoading) {
-    return (
-      <div className="text-center py-4">
-        <p>Loading calendar entries...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center py-4 text-red-500">
-        <p>Error: {error}</p>
-        <Button 
-          onClick={() => {
-            setError(null);
-            setCurrentDate(new Date()); // Reset to current month
-          }}
-          className="mt-2"
-        >
-          Try Again
-        </Button>
-      </div>
-    );
-  }
-
-  // Add or update a calendar entry
-  const handleSaveEntry = async () => {
-    if (!user || !selectedDay) return;
-
-    const dateString = format(selectedDay, 'yyyy-MM-dd');
-
-    try {
-      const existingEntry = calendarEntries[dateString];
-
-      if (existingEntry) {
-        // Update existing entry
-        await updateCalendarEntry(existingEntry.id!, {
-          notes: dayNote
-        });
-      } else {
-        // Create new entry
-        const newEntryId = await addCalendarEntry(user.uid, {
-          date: dateString,
-          notes: dayNote,
-          completed: false
-        });
-
-        // Update local state
-        setCalendarEntries(prev => ({
-          ...prev,
-          [dateString]: { 
-            id: newEntryId, 
-            userId: user.uid, 
-            date: dateString, 
-            notes: dayNote,
-            completed: false 
-          }
-        }));
-      }
-
-      toast({
-        title: "Success",
-        description: "Calendar entry saved",
-        variant: "default"
-      });
-
-      // Close dialog
-      setSelectedDay(null);
-      setDayNote('');
-    } catch (error) {
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : 'Unknown error saving calendar entry';
-      
-      setError(errorMessage);
-      logger.error('Failed to save calendar entry', { 
-        error: errorMessage,
-        userId: user?.uid 
-      });
-
-      toast({
-        title: "Error Saving Calendar Entry",
-        description: errorMessage,
-        variant: "destructive"
-      });
-    }
-  };
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(monthStart);
+  const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   const renderHeader = () => {
     return (
       <div className="flex justify-between items-center mb-4">
-        <Button 
-          variant="outline"
+        <button 
           onClick={() => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+          className="p-2 bg-gray-200 rounded"
         >
           Prev
-        </Button>
+        </button>
         <h2 className="text-xl font-bold">
           {format(currentDate, 'MMMM yyyy')}
         </h2>
-        <Button 
-          variant="outline"
+        <button 
           onClick={() => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+          className="p-2 bg-gray-200 rounded"
         >
           Next
-        </Button>
+        </button>
       </div>
     );
   };
@@ -217,70 +51,60 @@ export const Calendar: React.FC = () => {
   };
 
   const renderCalendar = () => {
-    const monthStart = startOfMonth(currentDate);
-    const monthEnd = endOfMonth(monthStart);
-    const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-
     return (
       <div className="grid grid-cols-7 gap-1">
         {daysInMonth.map(day => {
-          const dateString = format(day, 'yyyy-MM-dd');
-          const hasEntry = !!calendarEntries[dateString];
+          // Find meals for this specific day
+          const dayMeals = foodLog.filter(entry => {
+            const entryDate = new Date(entry.date);
+            return (
+              entryDate.getFullYear() === day.getFullYear() &&
+              entryDate.getMonth() === day.getMonth() &&
+              entryDate.getDate() === day.getDate()
+            );
+          });
 
           return (
-            <Dialog 
-              key={dateString} 
-              open={selectedDay?.toDateString() === day.toDateString()}
-              onOpenChange={(open) => {
-                if (open) {
-                  setSelectedDay(day);
-                  const existingEntry = calendarEntries[dateString];
-                  setDayNote(existingEntry?.notes || '');
-                } else {
-                  setSelectedDay(null);
-                }
-              }}
+            <div 
+              key={day.toISOString()} 
+              className={`
+                text-center 
+                p-2 
+                border 
+                rounded 
+                relative
+                ${isToday(day) ? 'bg-blue-200' : 'bg-white'}
+                ${dayMeals.length > 0 ? 'bg-green-100' : ''}
+                hover:bg-gray-100
+              `}
             >
-              <DialogTrigger asChild>
-                <div 
-                  className={`
-                    text-center 
-                    p-2 
-                    border 
-                    rounded 
-                    cursor-pointer
-                    ${isToday(day) ? 'bg-blue-200' : 'bg-white'}
-                    ${hasEntry ? 'border-green-500' : 'border-gray-200'}
-                    hover:bg-gray-100
-                  `}
-                >
-                  {format(day, 'd')}
-                  {hasEntry && <span className="text-xs text-green-600 block">Note</span>}
+              <div className="flex justify-between items-center">
+                <span>{format(day, 'd')}</span>
+                {dayMeals.length > 0 && (
+                  <div 
+                    className="absolute top-1 right-1 flex items-center text-xs text-green-600"
+                    title={`${dayMeals.length} meal(s) logged`}
+                  >
+                    <Flame className="w-4 h-4" />
+                    <span>{dayMeals.length}</span>
+                  </div>
+                )}
+              </div>
+              {dayMeals.length > 0 && (
+                <div className="mt-1 text-xs text-gray-600">
+                  {dayMeals.map((meal, index) => (
+                    <div key={index} className="truncate">
+                      {meal.name}
+                    </div>
+                  ))}
                 </div>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>
-                    {format(day, 'MMMM d, yyyy')}
-                  </DialogTitle>
-                </DialogHeader>
-                <Input 
-                  placeholder="Add a note for this day"
-                  value={dayNote}
-                  onChange={(e) => setDayNote(e.target.value)}
-                />
-                <Button onClick={handleSaveEntry}>
-                  Save Note
-                </Button>
-              </DialogContent>
-            </Dialog>
+              )}
+            </div>
           );
         })}
       </div>
     );
   };
-
-  if (!user) return null;
 
   return (
     <div className="p-4 bg-white rounded-lg shadow-md">

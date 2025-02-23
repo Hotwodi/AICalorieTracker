@@ -1,0 +1,4 @@
+11:33:22.982 [NamespaceSystem-akka.actor.default-dispatcher-5] INFO akka.event.slf4j.Slf4jLogger - Slf4jLogger started
+11:33:23.684 [main] INFO com.firebase.server.forge.App$ - Listening at 127.0.0.1:9000
+11:33:44.912 [NamespaceSystem-akka.actor.default-dispatcher-5] INFO com.firebase.core.namespace.NamespaceActor - ai-calorie-tracker-3cdc8-default-rtdb successfully activated FBKV (SurveyIdle(0)) wait: 294ms, init: 0ms
+11:33:45.054 [NamespaceSystem-blocking-namespace-operation-dispatcher-7] INFO com.firebase.core.namespace.StateManager - Namespace ai-calorie-tracker-3cdc8-default-rtdb status Active to Active

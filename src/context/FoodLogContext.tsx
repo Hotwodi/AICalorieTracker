@@ -25,6 +25,7 @@ interface FoodLogContextType {
   dailyMacroGoals: DailyMacroGoals;
   setDailyMacroGoals: (goals: DailyMacroGoals) => void;
   addFoodLogEntry: (entry: FoodLogEntry) => void;
+  addManualFoodEntry: (entry: Omit<FoodLogEntry, 'id' | 'date'>) => void;
   removeFoodLogEntry: (id: string) => void;
   updateFoodLogEntry: (entry: FoodLogEntry) => void;
   getTodaysMacroTotals: () => {
@@ -49,7 +50,21 @@ export const FoodLogProvider: React.FC<{ children: ReactNode }> = ({ children })
   });
 
   const addFoodLogEntry = (entry: FoodLogEntry) => {
-    setFoodLog(prevLog => [...prevLog, { ...entry, id: Date.now().toString() }]);
+    console.log('Adding food log entry:', entry);
+    setFoodLog(prevLog => {
+      const updatedLog = [...prevLog, { ...entry, id: Date.now().toString() }];
+      console.log('Updated food log:', updatedLog);
+      return updatedLog;
+    });
+  };
+
+  const addManualFoodEntry = (entry: Omit<FoodLogEntry, 'id' | 'date'>) => {
+    const fullEntry: FoodLogEntry = {
+      ...entry,
+      id: Date.now().toString(),
+      date: new Date().toISOString()
+    };
+    addFoodLogEntry(fullEntry);
   };
 
   const removeFoodLogEntry = (id: string) => {
@@ -89,6 +104,7 @@ export const FoodLogProvider: React.FC<{ children: ReactNode }> = ({ children })
       dailyMacroGoals,
       setDailyMacroGoals,
       addFoodLogEntry, 
+      addManualFoodEntry,
       removeFoodLogEntry, 
       updateFoodLogEntry,
       getTodaysMacroTotals

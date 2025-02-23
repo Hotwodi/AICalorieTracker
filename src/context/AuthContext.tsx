@@ -1,114 +1,301 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react'; 
 import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut as firebaseSignOut, 
+  signIn, 
+  signUp, 
+  checkSession,
   onAuthStateChanged,
-  User
-} from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { 
-  initializeUserRecord, 
-  UserProfile, 
-  checkUserPermission,
-  logUserAction 
-} from '@/userInitialization';
+  signInWithEmailAndPassword,
+  auth
+} from '@/lib/firebase';
+import { User as FirebaseUser } from 'firebase/auth';
+import { initializeUserRecord } from '@/userInitialization';
 import { toast } from 'sonner';
+import { SubscriptionService } from '../services/subscription';
+import { UserService, UserProfile } from '../services/user-service';
+import { SubscriptionTier } from '../types/subscription';
+import { useToast } from '@/components/ui/use-toast';
 
 interface AuthContextType {
-  currentUser: User | null;
-  userProfile: UserProfile | null;
+  user: UserProfile | null;
   login: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  hasFeatureAccess: (feature: keyof NonNullable<UserProfile['permissions']['features']>) => boolean;
+  signup: (name: string, email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  subscriptionStatus: any;
+  refreshSubscriptionStatus: () => Promise<void>;
+  upgradeToPremium: () => Promise<void>;
+  getAuthErrorLog: () => any[];
+}
+
+interface AuthError {
+  type: 'signup' | 'login' | 'logout' | 'unknown';
+  message: string;
+  details?: any;
+  timestamp: number;
+}
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+}
+
+interface SubscriptionStatus {
+  isValid: boolean;
+  remainingUploads: number;
+  isPremium: boolean;
+  trialDaysLeft?: number;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<any>(null);
+  const [authErrors, setAuthErrors] = useState<any[]>([]);
+  const { toast: toastNotification } = useToast();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          // Initialize or update user record
-          const profile = await initializeUserRecord(user);
-          setCurrentUser(user);
-          setUserProfile(profile);
+    console.log('[AuthContext] Setting up auth state listener');
+    
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      try {
+        console.log('[AuthContext] Auth state changed:', {
+          userPresent: !!firebaseUser,
+          email: firebaseUser?.email
+        });
+
+        if (firebaseUser) {
+          // Convert Firebase user to UserProfile format
+          const userProfile: UserProfile = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || ''
+          };
           
-          // Log user login action
-          await logUserAction(user.uid, 'user_login', { 
-            email: user.email, 
-            timestamp: new Date().toISOString() 
-          });
-        } catch (error) {
-          console.error('Failed to initialize user record', error);
-          toast.error('Authentication error', {
-            description: 'Unable to load user profile'
-          });
+          setUser(userProfile);
+          setIsAuthenticated(true);
+          
+          await initializeUserRecord(firebaseUser);
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
         }
-      } else {
-        setCurrentUser(null);
-        setUserProfile(null);
+      } catch (error) {
+        console.error('[AuthContext] Error in auth state change:', error);
+        setUser(null);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      toast.success('Successfully signed in');
-    } catch (error) {
-      console.error('Sign in error', error);
-      toast.error('Sign in failed', {
-        description: error instanceof Error ? error.message : 'Unknown error'
-      });
-      throw error;
-    }
-  };
+  useEffect(() => {
+    console.log('[AuthContext] Setting up initial session check');
 
-  const signUp = async (email: string, password: string) => {
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      toast.success('Account created successfully');
-    } catch (error) {
-      console.error('Sign up error', error);
-      toast.error('Sign up failed', {
-        description: error instanceof Error ? error.message : 'Unknown error'
-      });
-      throw error;
-    }
-  };
-
-  const signOut = async () => {
-    try {
-      if (currentUser) {
-        await logUserAction(currentUser.uid, 'user_logout');
+    const verifySession = async () => {
+      try {
+        setIsLoading(true);
+        const existingUser = await checkSession();
+        
+        if (existingUser) {
+          // Convert Firebase user to UserProfile format
+          const userProfile: UserProfile = {
+            id: existingUser.uid,
+            email: existingUser.email || '',
+            name: existingUser.displayName || existingUser.email?.split('@')[0] || ''
+          };
+          
+          setUser(userProfile);
+          setIsAuthenticated(true);
+          toastNotification({
+            title: "Welcome Back!",
+            description: `Signed in as ${existingUser.email}`,
+          });
+        }
+      } catch (error) {
+        console.error('[AuthContext] Session verification error:', error);
+      } finally {
+        setIsLoading(false);
       }
-      await firebaseSignOut(auth);
-      toast.success('Successfully signed out');
-    } catch (error) {
-      console.error('Sign out error', error);
-      toast.error('Sign out failed');
+    };
+
+    verifySession();
+  }, []);
+
+  const logAuthError = (error: Partial<any>) => {
+    const newError: any = {
+      type: error.type || 'unknown',
+      message: error.message || 'Unknown authentication error',
+      details: error.details,
+      timestamp: Date.now()
+    };
+
+    // Add to error log
+    setAuthErrors(prev => [...prev, newError]);
+
+    // Display toast notification
+    toastNotification({
+      title: `Authentication ${newError.type} Error`,
+      description: newError.message,
+      variant: 'destructive'
+    });
+
+    // Optional: Log to console for debugging
+    console.error('Authentication Error:', newError);
+  };
+
+  const refreshSubscriptionStatus = async () => {
+    if (user) {
+      try {
+        const status = await SubscriptionService.getSubscriptionStatus(user.id);
+        setSubscriptionStatus(status);
+      } catch (error) {
+        logAuthError({
+          type: 'unknown',
+          message: 'Failed to refresh subscription status',
+          details: error
+        });
+      }
+    } else {
+      setSubscriptionStatus(null);
     }
   };
 
-  const hasFeatureAccess = (feature: keyof NonNullable<UserProfile['permissions']['features']>): boolean => {
-    return userProfile?.permissions?.features?.[feature] === true;
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      // Remove the email check and directly try to sign in
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // Convert Firebase user to UserProfile format
+      const userProfile: UserProfile = {
+        id: userCredential.user.uid,
+        email: userCredential.user.email || '',
+        name: userCredential.user.displayName || email.split('@')[0] || ''
+      };
+      
+      // Update user state
+      setUser(userProfile);
+      setIsAuthenticated(true);
+      
+      // Initialize subscription if needed
+      await SubscriptionService.initializeBasicSubscription(userProfile.id);
+      await refreshSubscriptionStatus();
+      
+      // Show success message
+      toast.success('Logged in successfully');
+      
+      // Redirect to home page after login
+      window.location.href = '/';
+    } catch (error) {
+      logAuthError({
+        type: 'login',
+        message: error instanceof Error ? error.message : 'Login failed',
+        details: error
+      });
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const value = {
-    currentUser,
-    userProfile,
+  const signup = async (name: string, email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      // Check if email already exists
+      const emailExists = await UserService.isEmailRegistered(email);
+      if (emailExists) {
+        throw new Error('Email already registered');
+      }
+
+      const userData: User = {
+        id: `user-${Date.now()}`,
+        email,
+        name
+      };
+
+      // Create user in Firestore
+      const userProfile = await UserService.createOrUpdateUser(userData);
+
+      // Update login status
+      await UserService.updateUserLoginStatus(userProfile.id, true);
+
+      // Store user in localStorage
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userProfile);
+      
+      // Initialize basic subscription for new users
+      await SubscriptionService.initializeBasicSubscription(userProfile.id);
+      await refreshSubscriptionStatus();
+      
+      // Redirect to home page after signup
+      window.location.href = '/';
+    } catch (error) {
+      logAuthError({
+        type: 'signup',
+        message: error instanceof Error ? error.message : 'Signup failed',
+        details: error
+      });
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    setIsLoading(true);
+    try {
+      if (user) {
+        // Update user status before logging out
+        await UserService.updateUserLoginStatus(user.id, false);
+      }
+      
+      // Call the UserService logout method which handles Firebase signOut
+      await UserService.logout();
+      
+      // Clear all states
+      setUser(null);
+      setIsAuthenticated(false);
+      setSubscriptionStatus(null);
+      
+      // Show success message using toast from sonner
+      toast.success('Logged out successfully');
+      
+      // Redirect to login page
+      window.location.href = '/login';
+    } catch (error) {
+      logAuthError({
+        type: 'logout',
+        message: error instanceof Error ? error.message : 'Logout failed',
+        details: error
+      });
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const value: AuthContextType = {
+    user,
     login,
-    signUp,
-    signOut,
-    hasFeatureAccess
+    signup,
+    logout,
+    isAuthenticated,
+    isLoading,
+    subscriptionStatus,
+    refreshSubscriptionStatus,
+    upgradeToPremium: async () => {
+      // Implement upgrade logic here
+      throw new Error('Not implemented');
+    },
+    getAuthErrorLog: () => authErrors
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -3,24 +3,24 @@
 3    package="capacitor.cordova.android.plugins.test" >
 4
 5    <uses-sdk
-5-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:5:5-74
+5-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest17989780088836860219.xml:5:5-74
 6        android:minSdkVersion="22"
-6-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:5:15-41
+6-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest17989780088836860219.xml:5:15-41
 7        android:targetSdkVersion="34" />
-7-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:5:42-71
+7-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest17989780088836860219.xml:5:42-71
 8
 9    <instrumentation
-9-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:11:5-15:88
+9-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest17989780088836860219.xml:11:5-15:88
 10        android:name="android.test.InstrumentationTestRunner"
-10-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:11:22-75
+10-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest17989780088836860219.xml:11:22-75
 11        android:functionalTest="false"
-11-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:14:22-52
+11-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest17989780088836860219.xml:14:22-52
 12        android:handleProfiling="false"
-12-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:13:22-53
+12-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest17989780088836860219.xml:13:22-53
 13        android:label="Tests for capacitor.cordova.android.plugins.test"
-13-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:15:22-86
+13-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest17989780088836860219.xml:15:22-86
 14        android:targetPackage="capacitor.cordova.android.plugins.test" />
-14-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:12:22-84
+14-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest17989780088836860219.xml:12:22-84
 15
 16    <permission
 16-->[androidx.core:core:1.9.0] C:\Users\reggi\.gradle\caches\transforms-3\7e6ef638166e99ace5ea09d122dd6835\transformed\core-1.9.0\AndroidManifest.xml:22:5-24:47
@@ -34,14 +34,14 @@
 20-->[androidx.core:core:1.9.0] C:\Users\reggi\.gradle\caches\transforms-3\7e6ef638166e99ace5ea09d122dd6835\transformed\core-1.9.0\AndroidManifest.xml:26:22-94
 21
 22    <application
-22-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:7:5-9:19
+22-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest17989780088836860219.xml:7:5-9:19
 23        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
 23-->[androidx.core:core:1.9.0] C:\Users\reggi\.gradle\caches\transforms-3\7e6ef638166e99ace5ea09d122dd6835\transformed\core-1.9.0\AndroidManifest.xml:28:18-86
 24        android:debuggable="true"
 25        android:extractNativeLibs="true" >
 26        <uses-library android:name="android.test.runner" />
-26-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:8:9-60
-26-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest12204557409740813287.xml:8:23-57
+26-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest17989780088836860219.xml:8:9-60
+26-->C:\Users\reggi\Desktop\snap-nutrition-guide-main\android\capacitor-cordova-android-plugins\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest17989780088836860219.xml:8:23-57
 27
 28        <provider
 28-->[androidx.emoji2:emoji2:1.2.0] C:\Users\reggi\.gradle\caches\transforms-3\88ec1b3b87d2fbd37f0f9b0c2045cc04\transformed\emoji2-1.2.0\AndroidManifest.xml:24:9-32:20
