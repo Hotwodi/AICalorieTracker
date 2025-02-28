@@ -26,6 +26,12 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
+console.log('Firebase Configuration:', {
+  apiKey: firebaseConfig.apiKey ? firebaseConfig.apiKey.substring(0, 10) + '...' : 'MISSING',
+  authDomain: firebaseConfig.authDomain,
+  projectId: firebaseConfig.projectId
+});
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -85,9 +91,11 @@ const createUserDocument = async (user: User, additionalData?: { displayName?: s
 const checkSession = async (): Promise<User | null> => {
   return new Promise((resolve, reject) => {
     const unsubscribe = firebaseOnAuthStateChanged(auth, (user) => {
+      console.log('Check Session - User:', user ? user.email : 'No user');
       unsubscribe();
       resolve(user);
     }, (error) => {
+      console.error('Check Session Error:', error);
       unsubscribe();
       reject(error);
     });
@@ -96,6 +104,7 @@ const checkSession = async (): Promise<User | null> => {
 
 const signIn = async (email: string, password: string): Promise<UserCredential> => {
   try {
+    console.log('Attempting sign in:', email);
     return await firebaseSignIn(auth, email, password);
   } catch (error) {
     console.error('Error signing in:', error);
@@ -103,11 +112,17 @@ const signIn = async (email: string, password: string): Promise<UserCredential> 
   }
 };
 
-const signUp = async (email: string, password: string, displayName: string): Promise<UserCredential> => {
+const signUp = async (email: string, password: string, displayName?: string): Promise<UserCredential> => {
   try {
+    console.log('Attempting sign up:', email);
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(userCredential.user, { displayName });
+    
+    if (displayName) {
+      await updateProfile(userCredential.user, { displayName });
+    }
+    
     await createUserDocument(userCredential.user, { displayName });
+    
     return userCredential;
   } catch (error) {
     console.error('Error signing up:', error);

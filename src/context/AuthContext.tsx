@@ -3,17 +3,16 @@ import {
   signIn, 
   signUp, 
   checkSession,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  auth
+  auth,
+  onAuthStateChanged as firebaseOnAuthStateChanged
 } from '@/lib/firebase';
 import { User as FirebaseUser } from 'firebase/auth';
 import { initializeUserRecord } from '@/userInitialization';
 import { toast } from 'sonner';
 import { SubscriptionService } from '../services/subscription';
 import { UserService, UserProfile } from '../services/user-service';
-import { SubscriptionTier } from '../types/subscription';
 import { useToast } from '@/components/ui/use-toast';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -24,31 +23,18 @@ interface AuthContextType {
   isLoading: boolean;
   subscriptionStatus: any;
   refreshSubscriptionStatus: () => Promise<void>;
-  upgradeToPremium: () => Promise<void>;
   getAuthErrorLog: () => any[];
 }
 
-interface AuthError {
-  type: 'signup' | 'login' | 'logout' | 'unknown';
-  message: string;
-  details?: any;
-  timestamp: number;
-}
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-}
-
-interface SubscriptionStatus {
-  isValid: boolean;
-  remainingUploads: number;
-  isPremium: boolean;
-  trialDaysLeft?: number;
-}
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -57,55 +43,79 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [subscriptionStatus, setSubscriptionStatus] = useState<any>(null);
   const [authErrors, setAuthErrors] = useState<any[]>([]);
   const { toast: toastNotification } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  console.log('AuthProvider: Initial render', { 
+    isAuthenticated, 
+    isLoading, 
+    currentPath: location.pathname 
+  });
 
   useEffect(() => {
-    console.log('[AuthContext] Setting up auth state listener');
+    console.log('Setting up auth state listener');
     
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      try {
-        console.log('[AuthContext] Auth state changed:', {
-          userPresent: !!firebaseUser,
-          email: firebaseUser?.email
-        });
+    const unsubscribe = firebaseOnAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('Auth state changed:', { 
+        userPresent: !!firebaseUser, 
+        email: firebaseUser?.email,
+        currentPath: location.pathname
+      });
 
+      setIsLoading(true);
+      try {
         if (firebaseUser) {
-          // Convert Firebase user to UserProfile format
           const userProfile: UserProfile = {
             id: firebaseUser.uid,
             email: firebaseUser.email || '',
             name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || ''
           };
           
+          console.log('User authenticated:', userProfile);
+          
           setUser(userProfile);
           setIsAuthenticated(true);
-          
           await initializeUserRecord(firebaseUser);
+
+          // Redirect logic
+          if (location.pathname === '/') {
+            console.log('Redirecting to /index');
+            navigate('/index');
+          }
         } else {
+          console.log('No user authenticated, resetting state');
           setUser(null);
           setIsAuthenticated(false);
+          
+          // Redirect to login if on a protected route
+          if (location.pathname !== '/') {
+            console.log('Redirecting to login page');
+            navigate('/');
+          }
         }
       } catch (error) {
-        console.error('[AuthContext] Error in auth state change:', error);
+        console.error('Auth state change error:', error);
         setUser(null);
         setIsAuthenticated(false);
+        navigate('/');
       } finally {
         setIsLoading(false);
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [navigate, location.pathname]);
 
+  // Additional session verification on initial load
   useEffect(() => {
-    console.log('[AuthContext] Setting up initial session check');
-
-    const verifySession = async () => {
+    const verifyInitialSession = async () => {
+      console.log('Verifying initial session');
       try {
-        setIsLoading(true);
         const existingUser = await checkSession();
         
+        console.log('Existing user from session check:', existingUser ? existingUser.email : 'No user');
+        
         if (existingUser) {
-          // Convert Firebase user to UserProfile format
           const userProfile: UserProfile = {
             id: existingUser.uid,
             email: existingUser.email || '',
@@ -114,41 +124,119 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           
           setUser(userProfile);
           setIsAuthenticated(true);
-          toastNotification({
-            title: "Welcome Back!",
-            description: `Signed in as ${existingUser.email}`,
-          });
+          
+          if (location.pathname === '/') {
+            console.log('Redirecting to /index after session verification');
+            navigate('/index');
+          }
+        } else {
+          console.log('No user found in session verification');
+          setUser(null);
+          setIsAuthenticated(false);
+          navigate('/');
         }
       } catch (error) {
-        console.error('[AuthContext] Session verification error:', error);
+        console.error('Initial session verification error:', error);
+        setUser(null);
+        setIsAuthenticated(false);
+        navigate('/');
       } finally {
         setIsLoading(false);
       }
     };
 
-    verifySession();
-  }, []);
+    verifyInitialSession();
+  }, [navigate, location.pathname]);
 
-  const logAuthError = (error: Partial<any>) => {
-    const newError: any = {
-      type: error.type || 'unknown',
-      message: error.message || 'Unknown authentication error',
-      details: error.details,
-      timestamp: Date.now()
-    };
+  const login = async (email: string, password: string) => {
+    console.log('Login attempt:', email);
+    setIsLoading(true);
+    try {
+      const userCredential = await signIn(email, password);
+      
+      const userProfile: UserProfile = {
+        id: userCredential.user.uid,
+        email: userCredential.user.email || '',
+        name: userCredential.user.displayName || email.split('@')[0] || ''
+      };
+      
+      console.log('Login successful:', userProfile);
+      
+      setUser(userProfile);
+      setIsAuthenticated(true);
+      
+      await SubscriptionService.initializeBasicSubscription(userProfile.id);
+      await refreshSubscriptionStatus();
+      
+      toast.success('Logged in successfully');
+      navigate('/index');
+    } catch (error) {
+      console.error('Login error:', error);
+      setUser(null);
+      setIsAuthenticated(false);
+      
+      toastNotification({
+        title: 'Login Failed',
+        description: error instanceof Error ? error.message : 'An unexpected error occurred',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    // Add to error log
-    setAuthErrors(prev => [...prev, newError]);
+  const signup = async (name: string, email: string, password: string) => {
+    console.log('Signup attempt:', email);
+    setIsLoading(true);
+    try {
+      const userCredential = await signUp(email, password, name);
+      
+      const userProfile: UserProfile = {
+        id: userCredential.user.uid,
+        email: userCredential.user.email || '',
+        name: name
+      };
+      
+      console.log('Signup successful:', userProfile);
+      
+      setUser(userProfile);
+      setIsAuthenticated(true);
+      
+      await SubscriptionService.initializeBasicSubscription(userProfile.id);
+      await refreshSubscriptionStatus();
+      
+      toast.success('Account created successfully');
+      navigate('/index');
+    } catch (error) {
+      console.error('Signup error:', error);
+      setUser(null);
+      setIsAuthenticated(false);
+      
+      toastNotification({
+        title: 'Signup Failed',
+        description: error instanceof Error ? error.message : 'An unexpected error occurred',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    // Display toast notification
-    toastNotification({
-      title: `Authentication ${newError.type} Error`,
-      description: newError.message,
-      variant: 'destructive'
-    });
-
-    // Optional: Log to console for debugging
-    console.error('Authentication Error:', newError);
+  const logout = async () => {
+    try {
+      await UserService.logout();
+      setUser(null);
+      setIsAuthenticated(false);
+      setSubscriptionStatus(null);
+      navigate('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toastNotification({
+        title: 'Logout Failed',
+        description: error instanceof Error ? error.message : 'An unexpected error occurred',
+        variant: 'destructive'
+      });
+    }
   };
 
   const refreshSubscriptionStatus = async () => {
@@ -157,132 +245,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const status = await SubscriptionService.getSubscriptionStatus(user.id);
         setSubscriptionStatus(status);
       } catch (error) {
-        logAuthError({
-          type: 'unknown',
-          message: 'Failed to refresh subscription status',
-          details: error
-        });
+        console.error('Subscription status refresh error:', error);
       }
     } else {
       setSubscriptionStatus(null);
     }
   };
 
-  const login = async (email: string, password: string) => {
-    setIsLoading(true);
-    try {
-      // Remove the email check and directly try to sign in
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      
-      // Convert Firebase user to UserProfile format
-      const userProfile: UserProfile = {
-        id: userCredential.user.uid,
-        email: userCredential.user.email || '',
-        name: userCredential.user.displayName || email.split('@')[0] || ''
-      };
-      
-      // Update user state
-      setUser(userProfile);
-      setIsAuthenticated(true);
-      
-      // Initialize subscription if needed
-      await SubscriptionService.initializeBasicSubscription(userProfile.id);
-      await refreshSubscriptionStatus();
-      
-      // Show success message
-      toast.success('Logged in successfully');
-      
-      // Redirect to home page after login
-      window.location.href = '/';
-    } catch (error) {
-      logAuthError({
-        type: 'login',
-        message: error instanceof Error ? error.message : 'Login failed',
-        details: error
-      });
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const getAuthErrorLog = () => authErrors;
 
-  const signup = async (name: string, email: string, password: string) => {
-    setIsLoading(true);
-    try {
-      // Check if email already exists
-      const emailExists = await UserService.isEmailRegistered(email);
-      if (emailExists) {
-        throw new Error('Email already registered');
-      }
-
-      const userData: User = {
-        id: `user-${Date.now()}`,
-        email,
-        name
-      };
-
-      // Create user in Firestore
-      const userProfile = await UserService.createOrUpdateUser(userData);
-
-      // Update login status
-      await UserService.updateUserLoginStatus(userProfile.id, true);
-
-      // Store user in localStorage
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userProfile);
-      
-      // Initialize basic subscription for new users
-      await SubscriptionService.initializeBasicSubscription(userProfile.id);
-      await refreshSubscriptionStatus();
-      
-      // Redirect to home page after signup
-      window.location.href = '/';
-    } catch (error) {
-      logAuthError({
-        type: 'signup',
-        message: error instanceof Error ? error.message : 'Signup failed',
-        details: error
-      });
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const logout = async () => {
-    setIsLoading(true);
-    try {
-      if (user) {
-        // Update user status before logging out
-        await UserService.updateUserLoginStatus(user.id, false);
-      }
-      
-      // Call the UserService logout method which handles Firebase signOut
-      await UserService.logout();
-      
-      // Clear all states
-      setUser(null);
-      setIsAuthenticated(false);
-      setSubscriptionStatus(null);
-      
-      // Show success message using toast from sonner
-      toast.success('Logged out successfully');
-      
-      // Redirect to login page
-      window.location.href = '/login';
-    } catch (error) {
-      logAuthError({
-        type: 'logout',
-        message: error instanceof Error ? error.message : 'Logout failed',
-        details: error
-      });
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const value: AuthContextType = {
+  const value = {
     user,
     login,
     signup,
@@ -291,20 +263,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     isLoading,
     subscriptionStatus,
     refreshSubscriptionStatus,
-    upgradeToPremium: async () => {
-      // Implement upgrade logic here
-      throw new Error('Not implemented');
-    },
-    getAuthErrorLog: () => authErrors
+    getAuthErrorLog
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 };

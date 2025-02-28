@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate, Routes, Route, useNavigate } from 'react-router-dom';
+import { Navigate, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { FoodLogProvider } from "@/context/FoodLogContext";
@@ -14,12 +14,40 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { initializeUserRecord } from "@/userInitialization";
 
-// Admin route guard component
+// Private Route Component
+const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
+
+  console.log('PrivateRoute: ', { 
+    isAuthenticated, 
+    isLoading, 
+    currentPath: location.pathname 
+  });
+
+  if (isLoading) {
+    return <div className="flex justify-center items-center h-screen">
+      <div>Loading... Please wait</div>
+    </div>;
+  }
+
+  if (!isAuthenticated) {
+    // Redirect to login, preserving the current location
+    console.log('Redirecting to login');
+    return <Navigate to="/" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// Admin Route Guard Component
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <div className="flex justify-center items-center h-screen">
+      <div>Loading... Please wait</div>
+    </div>;
   }
 
   if (!user || user.role !== 'admin') {
@@ -29,9 +57,10 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
+// Main Layout Component (Login/Signup)
 const MainLayout: React.FC = () => {
   const { isAuthenticated, isLoading, logout, login, signup } = useAuth();
-  const navigate = useNavigate();
+  const navigate = useLocation();
   const { toast } = useToast();
   const [isLogin, setIsLogin] = React.useState(true);
   const [name, setName] = React.useState('');
@@ -39,7 +68,11 @@ const MainLayout: React.FC = () => {
   const [password, setPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
 
-  // Redirect to Index page when authenticated
+  console.log('MainLayout: ', { 
+    isAuthenticated, 
+    isLoading 
+  });
+
   React.useEffect(() => {
     console.log('Auth state changed:', { isAuthenticated, isLoading });
     if (isAuthenticated && !isLoading) {
@@ -76,7 +109,12 @@ const MainLayout: React.FC = () => {
     }
   };
 
-  // If already authenticated, redirect
+  if (isLoading) {
+    return <div className="flex justify-center items-center h-screen">
+      <div>Loading... Please wait</div>
+    </div>;
+  }
+
   if (isAuthenticated) {
     return <Navigate to="/index" />;
   }
@@ -162,9 +200,11 @@ const MainLayout: React.FC = () => {
   );
 };
 
+// Main App Component
 const App: React.FC = () => {
   // Initialize user record when the app starts
   React.useEffect(() => {
+    console.log('App component mounted');
     initializeUserRecord();
   }, []);
 
@@ -173,15 +213,26 @@ const App: React.FC = () => {
       <FoodLogProvider>
         <Routes>
           <Route path="/" element={<MainLayout />} />
-          <Route path="/index" element={<Index />} />
+          <Route 
+            path="/index" 
+            element={
+              <PrivateRoute>
+                <Index />
+              </PrivateRoute>
+            } 
+          />
           <Route 
             path="/admin" 
             element={
-              <AdminRoute>
-                <AdminPanel />
-              </AdminRoute>
+              <PrivateRoute>
+                <AdminRoute>
+                  <AdminPanel />
+                </AdminRoute>
+              </PrivateRoute>
             } 
           />
+          {/* Add a catch-all route to handle 404 */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <Toaster />
       </FoodLogProvider>
